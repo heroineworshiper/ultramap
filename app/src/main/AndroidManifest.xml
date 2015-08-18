@@ -1,0 +1,71 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.ultramap"
+    android:versionCode="1"
+    android:versionName="1.0" >
+
+    <uses-sdk
+        android:minSdkVersion="11"
+        android:targetSdkVersion="19" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="com.google.android.providers.gsf.permission.READ_GSERVICES"/>
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    
+    
+    
+    <application
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/AppTheme" 
+		android:persistent="true" >
+		 <meta-data android:name="com.google.android.gms.version"
+      		android:value="@integer/google_play_services_version" />
+        <meta-data
+    		android:name="com.google.android.maps.v2.API_KEY"
+    		android:value="AIzaSyC6BGMLfFVeMpjJbjK9vFZIcJefnWMM0kc"/>
+
+
+<!-- every new Eclipse installation needs a new key -->
+<!-- /usr/local/jdk1.7.0_07/bin/keytool -list -v -keystore ~/.android/debug.keystore -->
+<!-- password is android -->
+<!-- from the Google API console https://code.google.com/apis/console/ -->
+<!-- map key for heroine eclipse -->
+<!--    		android:value="AIzaSyDD5_kza2cLRDU59vXh-ROKzfjV4jdHa3I" -->
+
+<!-- map key for amazon eclipse -->
+<!--    		android:value="AIzaSyC6BGMLfFVeMpjJbjK9vFZIcJefnWMM0kc" -->
+        
+        <activity
+            android:name=".SettingsWin"
+            android:label="@string/title_activity_main" >
+        </activity>
+        <activity
+            android:name=".Map"
+            android:label="@string/title_activity_main" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".FileSelect"
+            android:label="@string/title_activity_main" >
+        </activity>
+        <activity
+            android:name=".IntervalTraining"
+            android:label="@string/title_activity_main" >
+        </activity>
+        <activity
+            android:name=".IntervalSettings"
+            android:label="Interval settings" >
+        </activity>
+        <service
+        	android:name=".Main" >
+    	</service>
+        
+        </application>
+
+</manifest>

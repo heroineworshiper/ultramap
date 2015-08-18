@@ -1,0 +1,66 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".FileSelect" >
+    
+    
+    <ListView
+        android:id="@+id/listView1"
+          android:layout_width="match_parent"
+          android:layout_height="fill_parent"
+        android:layout_alignParentLeft="true"
+        android:layout_above="@+id/file_buttons" >
+    </ListView>
+      
+    <TableLayout
+	    android:id="@+id/file_buttons"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" 
+        android:shrinkColumns="*"  
+    	android:stretchColumns="*"
+    	android:layout_alignParentBottom="true">
+  
+        
+        
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" >
+	
+    <EditText
+        android:id="@+id/file_text"
+        android:layout_weight="2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/button1"
+        android:layout_alignParentLeft="true"
+        android:ems="10" />
+
+          </TableRow>
+        
+       <TableRow
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" >
+	
+    
+    <Button
+        android:id="@+id/file_ok"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentLeft="true"
+        android:onClick="onClick"
+        android:text="OK" />
+
+    <Button
+        android:id="@+id/file_cancel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_toRightOf="@+id/button1"
+        android:onClick="onClick"
+        android:text="Cancel" />
+    </TableRow>
+</TableLayout>
+
+</RelativeLayout>

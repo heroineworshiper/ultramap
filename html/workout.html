@@ -1,0 +1,1834 @@
+<meta charset="utf-8">
+<style>
+
+#page {
+  height: 100%; width: 100%
+}
+
+.slider
+{
+    width: 50%;
+}
+
+#map-canvas 
+{ 
+	height: 100%;
+}
+
+#map_td
+{
+	height: 100%;
+}
+
+</style>
+
+<table id="page">
+
+
+<tr><td id="map_td">
+<div id="map-canvas"></div><P>
+</td></tr>
+
+<tr><td>
+<canvas onmousedown="return false" id="canvas" style="border:1px solid #000000;"> </canvas><P>
+</td></tr>
+
+<tr><td>
+<div id="controls">
+<font face=helvetica><b>
+<TT>Highlighted: <output id="highlightRange"></output><BR>
+Pointer: <output id="pointerRange"></output><BR>
+
+Constrain: 
+<input onClick="constrainEvent()" type="radio" id="constrainTime" name="constrain" value="time">Time 
+<input onClick="constrainEvent()" type="radio" id="constrainDistance" name="constrain" value="distance">Distance 
+
+
+Time: 
+<input onClick="timeEvent()" type="radio" id="absoluteTime" name="time" value="absolute">Absolute 
+<input onClick="timeEvent()" type="radio" id="elapsedTime" name="time" value="elapsed">Elapsed<BR> 
+
+
+<div id="file_inputs">
+<input type="file" id="file" />
+<button onClick="analyzeFile()">Analyze local file</button><BR>
+
+<input type="url" id="url" />
+<button onClick="analyzeURL()" >Analyze URL</button><BR>
+</div>
+
+
+
+
+X Zoom: 
+<input type="range" id="xzoom" class="slider" onchange="handleZoomX(value)">
+<button onClick="zoomXFit()">Fit</button><BR>
+
+Smoothing: 
+<input type="range" max="100" id="averaging" class="slider" onchange="handleSmoothing(value)">
+<output id="smoothingText"></output><BR>
+
+</td></tr>
+</div>
+</table>
+
+
+<script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDOOyShdCyx800OrbhmAl9cQniQdxLTSkk&sensor=FALSE">
+</script>
+
+<script src="jquery-2.1.1.min.js"></script>
+
+<script>
+
+// classes
+	function LLH(latitude, longitude, altitude)
+	{
+		this.latitude = latitude;
+		this.longitude = longitude;
+		this.altitude = altitude;
+	}
+
+	function XYZ(x, y, z)
+	{
+		this.x = x;
+		this.y = y;
+		this.z = z;
+	}
+
+
+	function GraphSlot(point, pace, altitude)
+	{
+		this.point = point;
+		this.pace = pace;
+		this.altitude = altitude;
+	}
+
+
+	function RoutePoint(llh, xyz, time, elapsed, distance)
+	{
+		this.llh = llh;
+// meters
+		this.xyz = xyz;
+// absolute time in seconds
+		this.time = time;
+// elapsed time in second
+		this.elapsed = elapsed;
+// accumulated distance in meters
+		this.distance = distance;
+
+	}
+
+
+// get the time of the point, based on timeFormat
+	RoutePoint.prototype.getTime = function() {
+		if(timeFormat == ABSOLUTE_TIME)
+		{
+			return this.time - route[0].time;
+		}
+		else
+		{
+			return this.elapsed  - route[0].elapsed;
+		}
+	};
+	
+	
+// variables
+	var mapLatitude = 37.78686;
+	var mapLongitude = -122.351089;
+	var mapZoom = 15;
+	var mapMode = google.maps.MapTypeId.SATELLITE;
+
+// raw data
+	var route = new Array();
+// averaged speed & altitude of complete route
+	var graphData = new Array();
+	var highlightedPolygon = null;
+	var pathPolygon = null;
+	var cursorMarker = null;
+// starting second of view
+	var minX = 0;
+// ending second of view
+	var maxX = 1;
+// span to measure pace in seconds
+	var smoothingTime = 60;
+// in miles
+	var smoothingDistance = 0.25;
+	var MAX_SMOOTHING_DISTANCE = 1.0;
+	var MAX_SMOOTHING_TIME = 120;
+// hwo to constrain the highlight size & smoothing
+	var FIXED_DISTANCE = 0;
+	var FIXED_TIME = 1;
+	var constrain = FIXED_DISTANCE;
+	var ABSOLUTE_TIME = 0;
+	var ELAPSED_TIME = 1;
+	var timeFormat = ABSOLUTE_TIME;
+	var documentMinPace = 0;
+	var documentMaxPace = 100;
+// absolute max pace in seconds
+	var ABS_MAX_PACE = 30 * 60;
+	var ABS_MIN_PACE = 5 * 60;
+	var minPace = 6 * 60;
+	var maxPace = 24 * 60;
+	var documentMinAlt = 0;
+	var documentMaxAlt = 100;
+	var minAlt = 0;
+	var maxAlt = 300;
+// last click was in canvas
+	var isCanvas = false;
+	var isDragging = false;
+	var isDraggingStart = false;
+	var isDraggingEnd = false;
+	var isDraggingMid = false;
+	var isTrackingCursor = false;
+	var cursorX = 0;
+// starting pixel of a drag
+	var dragOffsetX = 0;
+	var dragOffsetY = 0;
+// starting extents of a drag
+	var dragMinX = 0;
+	var dragMaxX = 0;
+// default value for URL box
+	var defaultURL = "";
+// seconds of waveform selected
+	var highlightBegin = 0;
+	var highlightEnd = 1;
+	var dragHighlightBegin = 0;
+	var dragHighlightEnd = 1;
+	var dragHighlightLength = 0;
+// calculated in drawGraph
+	var altScale = 0;
+	var paceScale = 0;
+	var highlightBeginX = 0;
+	var highlightEndX = 0;
+// time in milliseconds considered a double click
+	var DOUBLECLICKMS = 500;
+// time in milliseconds since last click
+	var doubleClickTime = 0;
+
+// default sizes
+	var canvas = document.getElementById("canvas");
+	var RIGHT_MARGIN = 20;
+	var CANVAS_HEIGHT = 300;
+	var FIELD_HEIGHT = 200;
+	var TIME_HEIGHT = 20;
+	var FONT_HEIGHT = 14;
+	var FONT_MARGIN = 2;
+	var HIGHLIGHT_SIZE = 20;
+	var WAVEFORM_HEIGHT = CANVAS_HEIGHT;
+	var POINTER_SIZE = 10;
+// meters
+	var DISTANCE_INCREMENT = 10;
+// the map
+	var map;
+	var boundaries = new google.maps.LatLngBounds();
+	
+	canvas.width = window.innerWidth - RIGHT_MARGIN;
+	canvas.height = CANVAS_HEIGHT;
+
+	canvas.addEventListener("DOMMouseScroll",	
+		mouseScroll,
+		false);
+	canvas.addEventListener("mousewheel",	
+		mouseScroll,
+		false);
+	window.addEventListener("resize", resizeEvent, false);
+	document.getElementById("file").addEventListener("change", handleFileSelect, false);
+
+	function metersToMiles(x)
+	{
+		return x / 1609.36357;
+	}
+
+	function milesToMeters(x)
+	{
+		return x * 1609.36357;
+	}
+
+    function initializeMap() 
+	{
+      	var mapOptions = 
+	  	{
+        	center: new google.maps.LatLng(mapLatitude, mapLongitude),
+        	zoom: mapZoom,
+			mapTypeId: mapMode
+      	};
+      
+	  	map = new google.maps.Map(document.getElementById("map-canvas"),
+          	mapOptions);
+
+		google.maps.event.addListener(map, 'click', function(e) {
+			lensLatitude = e.latLng.lat();
+			lensLongitude = e.latLng.lng();
+			saveDefaults();
+  		});
+
+ 		google.maps.event.addListener(map, 'center_changed', function() {
+			mapLatitude = map.getCenter().lat();
+			mapLongitude = map.getCenter().lng();
+			mapZoom = map.getZoom();
+			saveDefaults();
+  		});
+
+ 		google.maps.event.addListener(map, 'maptypeid_changed', function() {
+			mapMode = map.getMapTypeId();
+			saveDefaults();
+  		});
+    }
+	
+
+	$(document).ready(function()
+	{
+		loadDefaults();
+		updateZoom();
+		drawGraph();
+    	initializeMap();
+		resizeEvent();
+		
+		var start = window.location.href.indexOf("?");
+		var arg = null;
+		if(start >= 0)
+		{
+			arg = window.location.href.substring(start + 1);
+		}
+	
+	
+
+		if(arg != null)
+		{
+			$(file_inputs).hide();
+			analyzeURLArg(arg);
+		}
+		else
+		{
+			$(file_inputs).show();
+		}
+	})
+	
+// resize interface based on browser size
+	function resizeEvent()
+	{
+		canvas.width = window.innerWidth - RIGHT_MARGIN;
+		canvas.height = CANVAS_HEIGHT;
+//		var mapCanvas = document.getElementById("map-canvas");
+//		var controls = document.getElementById("controls");
+//		var controlsStyle = window.getComputedStyle(controls, null);
+//		var controlsH = parseInt(controlsStyle.getPropertyValue("height"));
+//
+//		debug("resizeEvent", 
+//			" " + window.innerHeight);
+//		mapCanvas.style.height = window.innerHeight - 
+//			CANVAS_HEIGHT - 
+//			controlsH -
+//			64;
+//		google.maps.event.trigger(map, "resize");
+		drawGraph();
+	}
+
+	canvas.onmousedown = function(e)
+	{
+		var rect = canvas.getBoundingClientRect();
+		var canvasX = e.layerX - rect.left;
+		var canvasY = e.layerY - rect.top;
+
+		var x = e.layerX;
+		var y = e.layerY;
+	
+	
+		isCanvas = true;
+		
+//		debug("onmousedown", 
+//			"e.layerX=" + e.layerX + 
+//			" e.screenX=" + e.screenX +
+//			" e.offsetX=" + e.offsetX);
+//		debug("onmousedown", "highlightBeginX=" + highlightBeginX);
+	
+		if((highlightEndX < highlightBeginX ||
+			highlightEndX - highlightBeginX > HIGHLIGHT_SIZE * 2.5) &&
+			canvasX >= highlightBeginX && 
+			canvasX < highlightBeginX + HIGHLIGHT_SIZE &&
+			canvasY >= canvas.height - HIGHLIGHT_SIZE && 
+			canvasY < canvas.height)
+		{
+			isDraggingStart = true;
+			dragOffsetX = x;
+			dragOffsetY = y;
+			dragHighlightBegin = highlightBegin;
+		}
+		else
+		if((highlightEndX < highlightBeginX ||
+			highlightEndX - highlightBeginX > HIGHLIGHT_SIZE * 2.5) &&
+			canvasX < highlightEndX && canvasX >= highlightEndX - HIGHLIGHT_SIZE &&
+			canvasY >= canvas.height - HIGHLIGHT_SIZE && canvasY < canvas.height)
+		{
+			isDraggingEnd = true;
+			dragOffsetX = x;
+			dragOffsetY = y;
+			dragHighlightEnd = highlightEnd;
+		}
+		else
+		if(canvasX >= highlightBeginX && 
+			canvasX < highlightEndX &&
+			canvasY >= canvas.height - HIGHLIGHT_SIZE && 
+			canvasY < canvas.height)
+		{
+			isDraggingMid = true;
+			dragOffsetX = x;
+			dragOffsetY = y;
+			dragHighlightBegin = highlightBegin;
+			dragHighlightEnd = highlightEnd;
+			dragHighlightLength = getAccumDistance(highlightBegin, highlightEnd);
+		}
+		else
+		{
+			isDragging = true;
+			dragOffsetX = x;
+			dragOffsetY = y;
+			dragMinX = minX;
+			dragMaxX = maxX;
+		}
+
+	}
+	
+	
+	
+	window.onmouseup = function(e)
+	{
+//		debug("onmouseup", e);
+		if(isCanvas)
+		{
+			var newTime = new Date().getTime();
+			if(newTime - doubleClickTime < DOUBLECLICKMS)
+			{
+				var rect = canvas.getBoundingClientRect();
+// cursor position relative to canvas
+				var canvasX = e.layerX - rect.left;
+				var canvasY = e.layerY - rect.top;
+// cursor position relative to waveform
+				var waveformX = canvasX * (maxX - minX) / canvas.width + minX;
+// size of canvas relative to waveform
+				var zoomX = maxX - minX;
+				
+				if(e.ctrlKey)
+					zoomX *= 2;
+				else
+					zoomX /= 2;
+				minX = waveformX - canvasX * zoomX / canvas.width;
+				maxX = minX + zoomX;
+				redraw(false);
+				doubleClickTime = 0;
+				
+			}
+			else
+			{
+				doubleClickTime = newTime;
+			}
+			
+		}
+
+
+		isCanvas = false;
+		isDragging = false;
+		isDraggingStart = false;
+		isDraggingEnd = false;
+		isDraggingMid = false;
+	}
+	
+	window.onkeypress = function(e)
+	{
+		debug("onkeypress", "e.keyCode=" + e.keyCode);
+		if(e.keyCode == 43 || e.keyCode == 61)
+		{
+			var centerX = (maxX + minX) / 2;
+// size of canvas relative to waveform
+			var zoomX = maxX - minX;
+			zoomX /= 2;
+
+			minX = centerX - zoomX / 2;
+			maxX = centerX + zoomX / 2;
+		
+			redraw(false);
+		}
+		else
+		if(e.keyCode == 45)
+		{
+			var centerX = (maxX + minX) / 2;
+// size of canvas relative to waveform
+			var zoomX = maxX - minX;
+			zoomX *= 2;
+
+			minX = centerX - zoomX / 2;
+			maxX = centerX + zoomX / 2;
+		
+			redraw(false);
+		}
+	}
+	
+	canvas.ondragover = function()
+	{
+		debug("ondrag", "");
+	}
+	
+	window.onmousemove = function(e)
+	{
+		var x = e.layerX;
+		var y = e.layerY;
+
+// drag highlighted area		
+		if(isDraggingStart)
+		{
+			var diffX = x - dragOffsetX;
+			var diffSamples = diffX * (maxX - minX) / canvas.width;
+			highlightBegin = dragHighlightBegin + diffSamples;
+			redraw(false);
+			updateOutput();
+			drawMap(false, true, true);
+		}
+		else
+		if(isDraggingEnd)
+		{
+			var diffX = x - dragOffsetX;
+			var diffSamples = diffX * (maxX - minX) / canvas.width;
+			highlightEnd = dragHighlightEnd + diffSamples;
+			redraw(false);
+			updateOutput();
+			drawMap(false, true, true);
+		}
+		else
+		if(isDraggingMid)
+		{
+			var diffX = x - dragOffsetX;
+			var diffSamples = diffX * (maxX - minX) / canvas.width;
+			highlightBegin = dragHighlightBegin + diffSamples;
+			highlightEnd = dragHighlightEnd + diffSamples;
+// calculate new ending point based on highlighted distance
+			if(highlightBegin < route.length && 
+				highlightBegin >= 0 && 
+				route.length > 0 &&
+				constrain == FIXED_DISTANCE)
+			{
+				var point1 = route[Math.floor(highlightBegin)];
+				var accum = 0;
+				for(var i = Math.floor(highlightBegin) + 1; 
+					i < route.length; 
+					i++)
+				{
+					var point2 = route[i];
+// meters
+					var distance = getDistance(point2.xyz, point1.xyz);
+					if(distance >= DISTANCE_INCREMENT)
+					{
+						accum += distance;
+						point1 = point2;
+						if(accum >= dragHighlightLength)
+						{
+							highlightEnd = i;
+							break;
+						}
+					}
+				}
+			}
+			redraw(false);
+			updateOutput();
+			drawMap(false, true, true);
+		}
+		else
+		if(isDragging)
+		{
+//			debug("onmousemove", 
+//				"e.layerX=" + e.layerX + 
+//				" e.screenX=" + e.screenX +
+//				" e.offsetX=" + e.offsetX);
+			var diffX = x - dragOffsetX;
+			var diffSamples = diffX * (dragMaxX - dragMinX) / canvas.width;
+			
+			minX = dragMinX - diffSamples;
+			maxX = dragMaxX - diffSamples;
+//			debug("onmousemove", "diffX=" + diffX + " diffSamples=" + diffSamples + " dragMinX=" + dragMinX + " dragMaxX=" + dragMaxX + " minX=" + minX + " maxX=" + maxX);
+//			debug("onmousemove", "minY=" + minY + " maxY=" + maxY);
+			redraw(false);
+		}
+		else
+		{
+// cursor position relative to canvas
+			var rect = canvas.getBoundingClientRect();
+			x -= rect.left;
+			y -= rect.top;
+			if(x >= 0 && x < canvas.width && y >= 0 && y < canvas.height)
+			{
+//				debug("onmousemove", "x=" + x + " y=" + y);
+				isTrackingCursor = true;
+				cursorX = Math.floor(x);
+				drawGraph();
+				updateOutput();
+				drawMap(false, false, true);
+			}
+			else
+			{
+				if(isTrackingCursor)
+				{
+					isTrackingCursor = false;
+					drawGraph();
+					
+				}
+			}
+		}
+	}
+	
+	function mouseScroll(e)
+	{
+		var change = e.wheelDelta || -e.detail;
+// cursor position relative to canvas
+		var rect = canvas.getBoundingClientRect();
+		var x = e.layerX - rect.left;
+		var y = e.layerY - rect.top;
+// cursor position relative to waveform
+		var cursorX = x * (maxX - minX) / canvas.width + minX;
+// size of canvas relative to waveform
+		var zoomX = maxX - minX;
+
+
+//		debug("mouseScroll", 
+//			"e.layerX=" + e.layerX + 
+//			" e.screenX=" + e.screenX +
+//			" e.offsetX=" + e.offsetX);
+
+
+		if(change > 0)
+		{
+			zoomX /= 2;
+		}
+		else
+		{
+			zoomX *= 2;
+		}
+		
+		minX = cursorX - x * zoomX / canvas.width;
+		maxX = minX + zoomX;
+		
+		redraw(false);
+		
+//		debug("mouseScroll", change);
+	}
+
+	function debug(where, text)
+	{
+		console.log(where + ": " + text);
+//    	setTimeout(function() {
+//        	throw new Error(where + ": " + text);
+//    	}, 0);
+	}
+
+//		document.getElementById("text").innerHTML += where + ": " + text + "<br>";
+//	}
+	
+	function redraw(needData)
+	{
+		var time1 = new Date().getTime();
+		clampGraph();
+		
+		if(needData) calculateGraph();
+		drawGraph();
+		updateZoom();
+
+		
+		var time2 = new Date().getTime();
+//		debug("redraw", time2 - time1 + "ms");
+	}
+	
+	function clampGraph()
+	{
+		minPace = clamp(minPace, documentMinPace, documentMaxPace);
+		maxPace = clamp(maxPace, documentMinPace, documentMaxPace);
+		minAlt = clamp(minAlt, documentMinAlt, documentMaxAlt);
+		maxAlt = clamp(maxAlt, documentMinAlt, documentMaxAlt);
+		if(maxX - minX < 10) maxX = minX + 10;
+		if(smoothingTime < 1) smoothingTime = 1;
+		if(smoothingDistance < 0.01) smoothingDistance = 0.01;
+//		if(maxX - minX > route.length)
+//		{
+//			maxX = minX + route.length;
+//		}
+		
+	}
+	
+	function handleZoomX(value)
+	{
+		var centerX = (maxX + minX) / 2;
+		var zoom = route.length * value / 100;
+		minX = centerX - zoom / 2;
+		maxX = centerX + zoom / 2;
+		clampGraph();
+		saveDefaults();
+		redraw(false);
+	}
+	
+	function handleSmoothing(value)
+	{
+		if(constrain == FIXED_DISTANCE)
+		{
+			smoothingDistance = value * MAX_SMOOTHING_DISTANCE / 100;
+		}
+		else
+		{
+			smoothingTime = value * MAX_SMOOTHING_TIME / 100;
+		}
+		
+		clampGraph();
+		saveDefaults();
+		redraw(true);
+	}
+	
+	
+
+	function zoomXFit()
+	{
+		minX = 0;
+		maxX = route.length;
+		saveDefaults();
+		updateZoom();
+		redraw(false);
+	}
+		
+	
+
+
+// update zoom parameters
+	function updateZoom()
+	{
+// browsers don't allow setting the default file
+//debug("updateZoom", "url=" + defaultURL);
+		document.getElementById("url").value = defaultURL;
+		if(constrain == FIXED_DISTANCE)
+		{
+			document.getElementById("averaging").value = 
+				smoothingDistance * 
+				100 /
+				MAX_SMOOTHING_DISTANCE;
+			document.getElementById("smoothingText").innerHTML = 
+				smoothingDistance + "mi";
+		}
+		else
+		{
+			document.getElementById("averaging").value = 
+				smoothingTime *
+				100 /
+				MAX_SMOOTHING_TIME;
+			document.getElementById("smoothingText").innerHTML = 
+				smoothingTime + "s";
+		}
+
+		document.getElementById("xzoom").value = (maxX - minX) * 100 / route.length;
+//debug("updateZoom", "constrain=" + constrain);
+		switch(constrain)
+		{
+			case FIXED_TIME:
+				document.getElementById("constrainDistance").checked = false;
+				document.getElementById("constrainTime").checked = true;
+				break;
+			case FIXED_DISTANCE:
+				document.getElementById("constrainDistance").checked = true;
+				document.getElementById("constrainTime").checked = false;
+				break;
+		}
+
+
+		switch(timeFormat)
+		{
+			case ABSOLUTE_TIME:
+				$(elapsedTime).prop("checked", false);
+				$(absoluteTime).prop("checked", true);
+				break;
+			case ELAPSED_TIME:
+				$(elapsedTime).prop("checked", true);
+				$(absoluteTime).prop("checked", false);
+				break;
+		}
+
+//		document.getElementById("min_alt").value = (minAlt - documentMinAlt) * 100 / (documentMaxAlt - documentMinAlt);
+//		document.getElementById("max_alt").value = (maxAlt - documentMinAlt) * 100 / (documentMaxAlt - documentMinAlt);
+//		document.getElementById("min_pace").value = (minPace - documentMinPace) * 100 / (documentMaxPace - documentMinPace);
+//		document.getElementById("max_pace").value = (maxPace - documentMinPace) * 100 / (documentMaxPace - documentMinPace);
+	}
+
+// get accumulated distance between 2 points in meters
+	function getAccumDistance(begin, end)
+	{
+		begin = Math.floor(begin);
+		end = Math.floor(end);
+		var point1 = route[begin];
+		var accum = 0;
+		for(var i = begin + 1; i < end; i++)
+		{
+			var point2 = route[i];
+// meters
+			var distance = getDistance(point2.xyz, point1.xyz);
+			if(distance >= DISTANCE_INCREMENT)
+			{
+				accum += distance;
+				point1 = point2;
+			}
+		}
+		return accum;
+	}
+
+// get the time of the point, based on timeFormat
+	function pointTime(index)
+	{
+		if(timeFormat == ABSOLUTE_TIME)
+		{
+			return route[index].time;
+		}
+		else
+		{
+			return route[index].elapsed  - route[0].elapsed;
+		}
+	}
+	
+	function updateOutput()
+	{
+		if(route.length == 0) return;
+		
+		var start = Math.floor(clamp(highlightBegin, 0, route.length - 1));
+		var end = Math.floor(clamp(highlightEnd, 0, route.length - 1));
+//		debug("updateOutput", "start=" + start + " end=" + end);
+		var point1 = route[start];
+		var point2 = route[end];
+// accumulated distance in meters
+		var distance = point2.distance - point1.distance;
+
+		var time = point2.getTime() - point1.getTime();
+		var altitude = point2.llh.altitude - point1.llh.altitude;
+// meters -> ft
+		altitude = altitude * 3.2808;
+		var pace = 0;
+			
+// seconds per mile
+		if(distance >= 1)
+			pace = time * 1609.36357 / distance;
+// meters -> miles
+		distance = distance / 1609.36357;
+		
+		document.getElementById("highlightRange").innerHTML = 
+			Math.floor(distance * 100) / 100 + "miles " +
+			Math.floor(time / 3600) + "h" + Math.floor((time % 3600) / 60) + "m" + Math.floor(time % 60) + "s total " +
+			Math.floor(pace / 60) + "m" + Math.floor(pace % 60) + "s per mile " +
+			Math.floor(altitude) + "ft change";
+		
+		if(isTrackingCursor)
+		{
+			var subscript = cursorX * (maxX - minX) / canvas.width + minX;
+			var result = xToPaceAltitude(cursorX);
+			var distance = 0;
+			
+			if(subscript >= 0 && subscript < route.length)
+			{
+				var point = route[Math.floor(subscript)];
+				distance = point.distance;
+// meters -> miles
+				distance = distance / 1609.36357;
+				time = point.getTime();
+			}
+			
+			document.getElementById("pointerRange").innerHTML = 
+				Math.floor(time / 3600) + "h" + Math.floor((time % 3600) / 60) + "m" + Math.floor(time % 60) + "s " +
+				Math.floor(distance * 100) / 100 + "miles total " + 
+				Math.floor(result.pace / 60) + "m" + Math.floor(result.pace % 60) + "s per mile " +
+				Math.floor(result.altitude) + "ft";
+		}
+	}
+
+	function square(x)
+	{
+		return x * x;
+	}
+	
+	function clamp(x, min, max)
+	{
+		if(x > max) x = max;
+		if(x < min) x = min;
+		return x;
+	}
+	
+	function getDistance(xyz1, xyz2)
+	{
+		return Math.sqrt(square(xyz1.x - xyz2.x) + 
+			square(xyz1.y - xyz2.y) +
+			square(xyz1.z - xyz2.z));
+	}
+
+// http://www.oc.nps.edu/oc2902w/coord/llhxyz.htm
+ 	function radcur(EARTH_A, EARTH_B, lati)
+ 	/*
+ 	   compute the radii at the geodetic latitude lat (in degrees)
+ 	   input:  lat       geodetic latitude in degrees
+ 	   output: rrnrm     an array 3 long
+ 	                     r,  rn,  rm   in km
+ 	*/
+ 	{
+ 		var dtr   = Math.PI / 180.0;
+
+ 		var  a, b, lat;
+ 		var  asq, bsq, eccsq, ecc, clat, slat;
+ 		var  dsq, d, rn, rm, rho, rsq, r, z;
+
+ 	   //        -------------------------------------
+
+ 		a     = EARTH_A;
+ 		b     = EARTH_B;
+
+ 		asq   = a * a;
+ 		bsq   = b * b;
+ 		eccsq  =  1.0 - bsq / asq;
+ 		ecc = Math.sqrt(eccsq);
+
+ 		lat   =  lati;
+
+ 		clat  =  Math.cos(dtr * lat);
+ 		slat  =  Math.sin(dtr * lat);
+
+ 		dsq   =  1.0 - eccsq * slat * slat;
+ 		d     =  Math.sqrt(dsq);
+
+ 		rn    =  a / d;
+ 		rm    =  rn * (1.0 - eccsq ) / dsq;
+
+ 		rho   =  rn * clat;
+ 		z     =  (1.0 - eccsq ) * rn * slat;
+ 		rsq   =  rho * rho + z * z;
+ 		r     =  Math.sqrt( rsq );
+
+		
+ 		this.rrnrm = [ r, rn, rm ];
+
+
+
+
+ 	}
+
+
+
+	function llhToXYZ(llh)
+	{
+// convert altitude to km from m
+// 		var altitude = llh.altitude / 1000;
+// ignore altitude for distance calculations
+ 		var altitude = 0;
+
+//		document.getElementById("text").innerHTML += latitude + " " + longitude + " " + altitude + "<P>";
+		
+		
+ 		// used by distance calculation	
+ 		var EARTH_A;
+ 		var EARTH_B;
+ 		var EARTH_F;
+ 		var EARTH_Ecc;
+ 		var EARTH_Esq;
+
+ 		
+ 	// Earth constants
+ 	    var wgs84a, wgs84b, wgs84f;
+
+ 	    wgs84a = 6378.137;
+ 	    wgs84f = 1.0 / 298.257223563;
+ 	    wgs84b = wgs84a * ( 1.0 - wgs84f );
+
+
+ 		var  f, ecc, eccsq, a, b;
+
+ 	    a        =  wgs84a;
+ 	    b        =  wgs84b;
+
+ 	    f        =  1 - b / a;
+ 	    eccsq    =  1 - b * b / (a * a);
+ 	    ecc      =  Math.sqrt(eccsq);
+
+ 	    EARTH_A   = a;
+ 	    EARTH_B   = b;
+ 	    EARTH_F   = f;
+ 	    EARTH_Ecc = ecc;
+ 	    EARTH_Esq = eccsq;
+
+ 		
+ 	    var dtr =  Math.PI / 180.0;
+ 	    var flat, flon;
+ 	    var clat, clon, slat, slon;
+ 	    var rn, esq;
+
+ 	    clat = Math.cos(dtr * llh.latitude);
+ 	    slat = Math.sin(dtr * llh.latitude);
+ 	    clon = Math.cos(dtr * llh.longitude);
+ 	    slon = Math.sin(dtr * llh.longitude);
+
+ 	    var rrnrm = new radcur(EARTH_A, EARTH_B, llh.latitude).rrnrm;
+ 	    rn = rrnrm[1];
+ 	    var re = rrnrm[0];
+
+ 	    ecc = EARTH_Ecc;
+ 	    esq = ecc * ecc;
+
+//		document.getElementById("text").innerHTML += "rn=" + rn + "<P>";
+
+
+		this.xyz = new XYZ();
+ 	    this.xyz.y = (rn + altitude) * 
+ 			clat * 
+ 			slon;
+ 	    this.xyz.x = (rn + altitude) * 
+ 			clat * 
+ 			clon;
+ 	    this.xyz.z = ( (1 - esq) * rn + altitude ) * slat;
+
+ 	    this.xyz.x *= 1000;
+ 	    this.xyz.y *= 1000;
+ 	    this.xyz.z *= 1000;
+		
+	}
+
+
+	function paceToPixel(pace)
+	{
+// linear scale
+//		return (pace - minPace) * paceScale;
+// logarithmic scale
+		if(pace < minPace + 1) return 0;
+		if(pace > maxPace) return WAVEFORM_HEIGHT;
+
+		var maxLog = Math.log(1 / (maxPace - minPace));
+		var result = Math.log((pace - minPace) / (maxPace - minPace)) / maxLog;
+		result = WAVEFORM_HEIGHT - result * WAVEFORM_HEIGHT;
+//		debug("paceToPixel", " result=" + result);
+		return result;
+	}
+	
+	function paceToText(pace)
+	{
+		if(pace < 60) return pace + "s";
+		var result = Math.floor(pace / 60) + "m";
+		if(Math.floor(pace % 60) > 0) result += Math.floor(pace % 60) + "s";
+		return result;
+	}
+	
+	function altToText(alt)
+	{
+		return Math.floor(alt) + "ft";
+	}
+	
+	function altToPixel(alt)
+	{
+		return WAVEFORM_HEIGHT - (alt - minAlt) * altScale;
+	}
+
+	function xToPaceAltitude(i)
+	{
+		var subscript1 = Math.floor(i * (maxX - minX) / canvas.width + minX);
+		var subscript2 = Math.floor((i + 1) * (maxX - minX) / canvas.width + minX);
+		if(subscript1 >= graphData.length) subscript1 = graphData.length - 1;
+		if(subscript1 < 0) subscript1 = 0;
+		if(subscript2 >= graphData.length) subscript2 = graphData.length - 1;
+		if(subscript2 < 0) subscript2 = 0;
+
+//			debug("drawGraph", "subscript1=" + subscript1);
+
+		var pace = 0;
+		var altitude =  0;
+
+		if(subscript2 > subscript1)
+		{
+			pace = 99999;
+			for(var j = subscript1; j < subscript2; j++)
+			{
+				var slot = graphData[Math.floor(j)];
+				if(slot.pace < pace) pace = slot.pace;
+				if(slot.altitude > altitude) altitude = slot.altitude;
+//						pace += slot.pace;
+//						altitude += slot.altitude;
+			}
+
+//					pace /= subscript2 - subscript1;
+//					altitude /= subscript2 - subscript1;
+		}
+		else
+		{
+			var slot = graphData[Math.floor(subscript1)];
+			pace = slot.pace;
+			altitude = slot.altitude;
+		}
+
+// Chrome interprets the line feed wrong
+		return {
+	        pace : pace,
+    	    altitude : altitude
+		};
+    };  
+		
+
+	function calculateGraph()
+	{
+		graphData = new Array();
+		var gotStart = false;
+		var index0 = 0;
+		var smoothingMeters = milesToMeters(smoothingDistance);
+
+// get starting point
+		if(constrain == FIXED_DISTANCE)
+		{
+			for(var i = 0; i < route.length; i++)
+			{
+				var point = route[i];
+
+				if(point.distance >= smoothingMeters)
+				{
+					index0 = i;
+					gotStart = true;
+					break;
+				}
+			}
+		}
+		else
+		{
+			index0 = smoothingTime;
+			gotStart = true;
+		}
+
+		if(gotStart)
+		{
+			for(var i = index0; i < route.length; i++)
+			{
+				var point1 = null;
+				var point2 = route[i];
+				var	index1 = 0;
+				var index2 = i;
+				if(constrain == FIXED_TIME)
+				{
+					index1 = i - smoothingTime;
+				}
+				else
+				{
+					for(var j = i; j >= 0; j--)
+					{
+						var point = route[j];
+						if(point2.distance - point.distance >= smoothingMeters)
+						{
+							index1 = j;
+							break;
+						}
+					}
+				}
+
+				point1 = route[index1];
+
+
+	// meters
+				var distance = point2.distance - point1.distance;
+	// seconds
+				var time = point2.getTime() - point1.getTime();
+	// seconds per mile
+				var pace = 0;
+
+				if(distance >= 1)
+				{
+// calculate new pace
+					pace = time * 1609.36357 / distance;
+				}
+				else
+				if(graphData.length > 0)
+				{
+// recycle previous point
+					pace = graphData[graphData.length - 1].pace;
+				}
+
+				var altitude = 0;
+				for(var j = index1; j < index2; j++)
+				{
+					altitude += route[j].llh.altitude;
+				}
+				
+				
+				
+// averaged meters -> ft
+				if(index2 > index1)
+				{
+					altitude = altitude * 3.2808 / (index2 - index1);
+				}
+				else
+				{
+					altitude = route[index2].llh.altitude * 3.2808;
+				}
+
+// fill in 1st points
+				if(i == index0)
+				{
+					for(var j = 0; j < index0; j++)
+					{
+						var slot = new GraphSlot(route[j], pace, altitude);
+						graphData.push(slot);
+					}
+				}
+
+				var slot = new GraphSlot(point2, pace, altitude);
+				graphData.push(slot);
+	//			debug("calculateGraph", "distance=" + distance + " time=" + time + " pace=" + pace);
+			}
+		}
+
+
+// get Y limits
+		documentMinPace = 99999;
+		documentMaxPace = -99999;
+		documentMinAlt = 99999;
+		documentMaxAlt = -99999;
+		for(var i = 0; i < graphData.length; i++)
+		{
+			var slot = graphData[i];
+			if(slot.pace > 0)
+			{
+				if(slot.pace < documentMinPace) documentMinPace = slot.pace;
+				if(slot.pace > documentMaxPace) documentMaxPace = slot.pace;
+			}
+			if(slot.altitude < documentMinAlt) documentMinAlt = slot.altitude;
+			if(slot.altitude > documentMaxAlt) documentMaxAlt = slot.altitude;
+		}
+
+		documentMaxPace = clamp(documentMaxPace, ABS_MIN_PACE, ABS_MAX_PACE);
+		documentMinPace = clamp(documentMinPace, ABS_MIN_PACE, ABS_MAX_PACE);
+		clampGraph();
+
+		minPace = documentMinPace;
+		maxPace = documentMaxPace;
+		minAlt = documentMinAlt;
+		maxAlt = documentMaxAlt;
+//		debug("calculateGraph", "length=" + graphData.length);
+//		debug("calculateGraph", "documentMinPace=" + documentMinPace + " documentMaxPace=" + documentMaxPace);
+//		debug("calculateGraph", "documentMinAlt=" + documentMinAlt + " documentMaxAlt=" + documentMaxAlt);
+	}
+
+
+	function drawMap(doPath, doHighlight, doCursor)
+	{
+	
+		
+		if(doPath)
+		{
+			if(pathPolygon != null)
+			{
+				pathPolygon.setMap(null);
+				pathPolygon = null;
+			}
+
+			if(route.length != 0)
+			{
+
+				var path = new Array();
+				for(var i = 0; i < route.length; i++)
+				{
+					var point = route[i];
+					path.push(new google.maps.LatLng(
+						point.llh.latitude,
+						point.llh.longitude));
+				}
+
+				pathPolygon = new google.maps.Polyline({
+    				path : path,
+    				geodesic : true,
+    				strokeColor : '#FF0000',
+    				strokeOpacity : 1.0,
+    				strokeWeight : 2,
+					zIndex : 0
+				  });
+				pathPolygon.setMap(map);
+			}
+		}
+		
+		if(doHighlight)
+		{
+			if(highlightedPolygon != null)
+			{
+				highlightedPolygon.setMap(null);
+				highlightedPolygon = null;
+			}
+			
+			if(route.length != 0)
+			{
+			
+// highlighted region
+				var start = Math.floor(clamp(highlightBegin, 0, route.length - 1));
+				var end = Math.floor(clamp(highlightEnd, 0, route.length - 1));
+				highlightedPath = new Array();
+				for(var i = start; i < end; i++)
+				{
+					var point = route[i];
+					highlightedPath.push(new google.maps.LatLng(
+						point.llh.latitude,
+						point.llh.longitude));
+				}
+				highlightedPolygon = new google.maps.Polyline({
+    				path: highlightedPath,
+    				geodesic: true,
+    				strokeColor: '#0000FF',
+    				strokeOpacity: 1.0,
+    				strokeWeight: 2,
+					zIndex : 1
+				  });
+				highlightedPolygon.setMap(map);
+			}
+		}
+
+		
+		if(doCursor)
+		{
+			if(cursorMarker != null)
+			{
+				cursorMarker.setMap(null);
+				cursorMarker = null;
+			}
+			
+			if(isTrackingCursor && route.length > 0)
+			{
+				var subscript = cursorX * (maxX - minX) / canvas.width + minX;
+				
+				if(subscript < route.length && subscript >= 0)
+				{
+					var point = route[Math.floor(subscript)];
+
+					cursorMarker = new google.maps.Marker({
+    					position : new google.maps.LatLng(point.llh.latitude,
+							point.llh.longitude)
+					});
+					cursorMarker.setMap(map);
+				}
+			}
+
+		}
+
+
+	}
+	
+
+
+
+	function dashedLine(ctx, x, y, x2, y2, da) 
+	{
+		ctx.beginPath();
+        if (!da) da = [10,5];
+        ctx.save();
+        var dx = (x2-x), dy = (y2-y);
+        var len = Math.sqrt(dx*dx + dy*dy);
+        var rot = Math.atan2(dy, dx);
+        ctx.translate(x, y);
+        ctx.moveTo(0, 0);
+        ctx.rotate(rot);       
+        var dc = da.length;
+        var di = 0, draw = true;
+        x = 0;
+        while (len > x) {
+            x += da[di++ % dc];
+            if (x > len) x = len;
+            draw ? ctx.lineTo(x, 0): ctx.moveTo(x, 0);
+            draw = !draw;
+        }       
+        ctx.restore();
+		ctx.stroke();
+    }
+
+	function drawCross(ctx, x, y)
+	{
+		ctx.beginPath();
+		ctx.moveTo(x - POINTER_SIZE, y - POINTER_SIZE);
+		ctx.lineTo(x + POINTER_SIZE, y + POINTER_SIZE);
+		ctx.stroke();
+		ctx.beginPath();
+		ctx.moveTo(x - POINTER_SIZE, y + POINTER_SIZE);
+		ctx.lineTo(x + POINTER_SIZE, y - POINTER_SIZE);
+		ctx.stroke();
+		
+	}
+
+	function drawGraph()
+	{
+//		debug("drawGraph", "maxPace=" + maxPace + " minPace=" + minPace);
+//		debug("drawGraph", "minAlt=" + minAlt + " maxAlt=" + maxAlt);
+//		paceToPixel(500);
+//		debug("drawGraph", "graphData.length=" + graphData.length);
+
+		var time1 = new Date().getTime();
+		altScale = WAVEFORM_HEIGHT / (maxAlt - minAlt);
+		paceScale = WAVEFORM_HEIGHT / (maxPace - minPace);
+
+		var ctx = canvas.getContext("2d"); 
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+// highlighted region
+		highlightBeginX = (highlightBegin - minX) * canvas.width / (maxX - minX);
+		ctx.strokeStyle = "#c0c0c0";
+		ctx.fillStyle = "#c0c0c0";
+		if(highlightBeginX >= -HIGHLIGHT_SIZE && highlightBeginX < canvas.width + HIGHLIGHT_SIZE)
+		{
+			ctx.beginPath();
+			ctx.moveTo(highlightBeginX, 0);
+			ctx.lineTo(highlightBeginX, WAVEFORM_HEIGHT);
+			ctx.stroke();
+
+			ctx.beginPath();
+			ctx.moveTo(highlightBeginX, WAVEFORM_HEIGHT);
+			ctx.lineTo(highlightBeginX + HIGHLIGHT_SIZE, WAVEFORM_HEIGHT);
+			ctx.lineTo(highlightBeginX, WAVEFORM_HEIGHT - HIGHLIGHT_SIZE);
+			ctx.lineTo(highlightBeginX, WAVEFORM_HEIGHT);
+			ctx.fill();
+		}
+		
+		highlightEndX = (highlightEnd - minX) * (canvas.width - 1) / (maxX - minX);
+		if(highlightEndX >= -HIGHLIGHT_SIZE && highlightEndX < canvas.width + HIGHLIGHT_SIZE)
+		{
+			ctx.beginPath();
+			ctx.moveTo(highlightEndX, 0);
+			ctx.lineTo(highlightEndX, WAVEFORM_HEIGHT);
+			ctx.stroke();
+
+			ctx.beginPath();
+			ctx.moveTo(highlightEndX, WAVEFORM_HEIGHT);
+			ctx.lineTo(highlightEndX - HIGHLIGHT_SIZE, WAVEFORM_HEIGHT);
+			ctx.lineTo(highlightEndX, WAVEFORM_HEIGHT - HIGHLIGHT_SIZE);
+			ctx.lineTo(highlightEndX, WAVEFORM_HEIGHT);
+			ctx.fill();
+		}
+		
+		ctx.beginPath();
+		ctx.moveTo(highlightBeginX, WAVEFORM_HEIGHT - HIGHLIGHT_SIZE);
+		ctx.lineTo(highlightEndX, WAVEFORM_HEIGHT - HIGHLIGHT_SIZE);
+		ctx.stroke();
+		for(var i = highlightBeginX; i < highlightEndX - HIGHLIGHT_SIZE; i += HIGHLIGHT_SIZE)
+		{
+			ctx.beginPath();
+			ctx.moveTo(i, WAVEFORM_HEIGHT - HIGHLIGHT_SIZE);
+			ctx.lineTo(i + HIGHLIGHT_SIZE, WAVEFORM_HEIGHT);
+			ctx.stroke();
+		}
+
+
+// pace scale
+		ctx.fillStyle = "#FF0000";
+		ctx.strokeStyle = "#FF0000";
+		ctx.textAlign = "left";
+		ctx.font = "14px sans-serif";
+		ctx.fillText(paceToText(minPace), 0, FONT_HEIGHT);
+		ctx.fillText(paceToText(maxPace), 0, WAVEFORM_HEIGHT - FONT_MARGIN);
+		
+		var pace1 = Math.floor(minPace / 60) * 60 + 60;
+		var y = paceToPixel(pace1);
+		if(y > FONT_HEIGHT * 2 && 
+			y < canvas.height - FONT_HEIGHT - FONT_MARGIN)
+		{
+			dashedLine(ctx, 0, y, canvas.width, y, [5, 5]);
+			ctx.fillText(paceToText(pace1), 0, y - FONT_MARGIN);
+		}
+		
+		y = paceToPixel(pace1 + 60);
+		if(y > FONT_HEIGHT * 2 && 
+			y < canvas.height - FONT_HEIGHT - FONT_MARGIN)
+		{
+			dashedLine(ctx, 0, y, canvas.width, y, [5, 5]);
+			ctx.fillText(paceToText(pace1 + 60), 0, y - FONT_MARGIN);
+		}
+		
+		y = paceToPixel(pace1 + 120);
+		if(y > FONT_HEIGHT * 2 && 
+			y < canvas.height - FONT_HEIGHT - FONT_MARGIN)
+		{
+			dashedLine(ctx, 0, y, canvas.width, y, [5, 5]);
+			ctx.fillText(paceToText(pace1 + 120), 0, y - FONT_MARGIN);
+		}
+		
+		
+// altitude scale
+		ctx.fillStyle = "#0000ff";
+		ctx.strokeStyle = "#0000ff";
+		ctx.textAlign = "right";
+		ctx.fillText(altToText(maxAlt), canvas.width - FONT_MARGIN, FONT_HEIGHT);
+		ctx.fillText(altToText(minAlt), canvas.width - FONT_MARGIN, WAVEFORM_HEIGHT - FONT_MARGIN);
+		
+		var step = 50;
+		while((maxAlt - minAlt) / step > 4) step += 50;
+		for(var i = Math.floor(maxAlt / step) * step + step; 
+			i > minAlt; 
+			i -= step)
+		{
+			y = altToPixel(i);
+			if(y > FONT_HEIGHT * 2 && y < canvas.height - FONT_HEIGHT - FONT_MARGIN)
+			{
+				ctx.fillText(altToText(i), canvas.width - FONT_MARGIN, y - FONT_MARGIN);
+				dashedLine(ctx, canvas.width, y, 0, y, [5, 5]);
+			}
+		}
+
+		if(graphData.length == 0) return;
+
+
+		for(var pass = 0; pass < 2; pass++)
+		{
+			ctx.beginPath();
+			if(pass == 0)
+				ctx.strokeStyle = "#FF0000";
+			else
+				ctx.strokeStyle = "#0000ff";
+		
+			for(var i = 0; i < canvas.width; i++)
+			{
+				var result = xToPaceAltitude(i);
+				var y = 0;
+				
+				if(pass == 0)
+				{
+					y = paceToPixel(result.pace);
+					ctx.strokeStyle = "#FF0000";
+				}
+				else
+				{
+					y = altToPixel(result.altitude);
+					ctx.strokeStyle = "#0000ff";
+				}
+
+				if(i == 0)
+				{
+					ctx.moveTo(0, y);
+				}
+				else
+				{
+					ctx.lineTo(i, y);
+				}
+			}
+
+			ctx.stroke();
+		}
+
+		if(isTrackingCursor)
+		{
+			var result = xToPaceAltitude(cursorX);
+//debug("drawGraph", "pace=" + result.pace + " altitude=" + result.altitude);
+			y = paceToPixel(result.pace);
+			
+			ctx.strokeStyle = "#FF0000";
+			drawCross(ctx, cursorX, y);
+			
+			y = altToPixel(result.altitude);
+			ctx.strokeStyle = "#0000FF";
+			drawCross(ctx, cursorX, y);
+		}
+
+		
+	}
+	
+	function constrainEvent()
+	{
+//		debug("constrainEvent", "");
+		if(document.getElementById("constrainDistance").checked)
+		{
+			constrain = FIXED_DISTANCE;
+		}
+		else
+		{
+			constrain = FIXED_TIME;
+		}
+		saveDefaults();
+		redraw(true);
+	}
+
+	function timeEvent()
+	{
+		if($(absoluteTime).prop("checked") == true)
+		{
+			timeFormat = ABSOLUTE_TIME;
+		}
+		else
+		{
+			timeFormat = ELAPSED_TIME;
+		}
+		saveDefaults();
+		redraw(true);
+		updateOutput();
+	}
+
+	function analyzeURLArg(url)
+	{
+//		debug("analyzeURL 1", url);
+		var client = new XMLHttpRequest();
+		client.open("GET", url);
+		client.onreadystatechange = function() 
+		{
+//			debug("analyzeURL", client.readyState);
+			if(client.readyState == XMLHttpRequest.DONE)
+			{
+			  	analyze(client.responseText);
+			}
+		};
+		client.send();	
+	}
+
+	function analyzeURL()
+	{
+		defaultURL = document.getElementById("url").value;
+		debug("analyzeURL 2", defaultURL);
+		saveDefaults();
+		
+		var client = new XMLHttpRequest();
+		client.open("GET", defaultURL);
+		client.onreadystatechange = function() 
+		{
+//			debug("analyzeURL", client.readyState);
+			if(client.readyState == XMLHttpRequest.DONE)
+			{
+			  	analyze(client.responseText);
+			}
+		};
+		client.send();	
+	}
+	
+	function handleFileSelect(e)
+	{
+		analyzeFile();
+	}
+	
+	function analyzeFile()
+	{
+		var files = document.getElementById('file').files;
+		var reader = new FileReader();
+		reader.readAsText(files[0]);
+		reader.onloadend = function(evt)
+		{
+			if (evt.target.readyState == FileReader.DONE) 
+			{
+				analyze(evt.target.result);
+			}
+			
+		}
+	}
+
+
+	function analyze(text)
+	{	
+
+// get the coordinates
+		var coords_begin = text.search("coordinates");
+		var coords_end = text.search("/coordinates");
+		var coordinates = text.slice(coords_begin + 13, coords_end - 1);
+		var coordinates2 = coordinates.split("\n");
+		var minLon = 180;
+		var maxLon = -180
+		var minLat = 180;
+		var maxLat = -180;
+		route = new Array();
+//debug("analyze", "text=" + text);
+
+		var point1;
+		var accum = 0;
+		var min_alt = 0;
+		for(var i = 0; i < coordinates2.length /* && i < 64 */; i++)
+		{
+			var coordinate = coordinates2[i].split(",");
+			if(coordinate.length == 3)
+			{
+				var llh = new LLH(parseFloat(coordinate[1]), 
+					parseFloat(coordinate[0]), 
+					parseFloat(coordinate[2]));
+				if(llh.latitude > maxLat) maxLat = llh.latitude;
+				if(llh.latitude < minLat) minLat = llh.latitude;
+				if(llh.longitude > maxLon) maxLon = llh.longitude;
+				if(llh.longitude < minLon) minLon = llh.longitude;
+				if(llh.altitude < min_alt) min_alt = llh.altitude;
+
+				var xyz = new llhToXYZ(llh).xyz;
+				
+				if(route.length > 0)
+				{
+					var distance = getDistance(xyz, point1.xyz);
+					if(distance >= DISTANCE_INCREMENT)
+					{
+						accum += distance;
+//debug("analyze", "accum=" + accum);
+					}
+					
+					point2 = new RoutePoint(
+						llh,
+						xyz, 
+						0,
+						0,
+						accum);
+
+					if(distance >= DISTANCE_INCREMENT)
+					{
+						point1 = point2;
+					}
+
+					route.push(point2);
+				}
+				else
+				{
+					point1 = new RoutePoint(
+						llh,
+						xyz, 
+						0,
+						0,
+						0);
+					route.push(point1);
+				}
+			}
+
+		}
+debug("analyze", "min_alt=" + min_alt);
+
+// Fix negative altitude
+		for(var i = 0; i < route.length; i++)
+		{
+			route[i].llh.altitude += -min_alt;
+		}
+
+// update map
+		boundaries = new google.maps.LatLngBounds(
+			new google.maps.LatLng(minLat, minLon),
+			new google.maps.LatLng(maxLat, maxLon));
+		map.fitBounds(boundaries);
+
+
+// get the timestamps
+// get local timezone in ms
+//				var time_zone = new Date().getTimezoneOffset() * 60 * 1000;
+		var timestamps = text.slice(coords_end + 13);
+		var timestamps_begin = timestamps.search("<Placemark>");
+		var timestamps2 = timestamps.slice(timestamps_begin);
+		var timestamps3 = timestamps2.split("\n");
+
+//document.getElementById("text").innerHTML += "time zone=" + time_zone + "<BR>\n";
+		for(var i = 0; i < timestamps3.length && i < route.length; i++)
+		{
+			var timestamp = timestamps3[i].split(">");
+//console.log("analyze", "timestamp=" + timestamp);
+			var begin = null;
+			var elapsed = null;
+
+			for(var j = 0; j < timestamp.length - 1; j++)
+			{
+				if(begin == null && timestamp[j].indexOf("begin") >= 0)
+				{
+					var beginText = timestamp[j + 1].split("<");
+					begin = new Date(beginText[0]);
+				}
+
+				if(elapsed == null && timestamp[j].indexOf("Elapsed") >= 0)
+				{
+					var elapsedText = timestamp[j + 1].split("<");
+					elapsed = elapsedText[0];
+//console.log("analyze", "elapsedText=" + elapsedText);
+				}
+			}
+
+//			begin.setTime(begin.getTime() + time_zone);
+//			document.getElementById("text").innerHTML += 
+//				begin.toUTCString() + "<BR>\n";
+
+//			document.getElementById("text").innerHTML += 
+//				"begin=" + timestamp[3].slice(0, 20) + 
+//				" end=" + timestamp[5].slice(0, 20) + "<BR>\n";
+// store time as UTC seconds
+			if(begin != null) route[i].time = begin.getTime() / 1000;
+			if(elapsed != null) route[i].elapsed = parseInt(elapsed);
+
+
+//			debug("analyze", "time=" + begin.toUTCString() + " elapsed=" + elapsed);
+		}
+
+
+
+		minX = 0;
+		maxX = route.length;
+		highlightBegin = 0;
+		highlightEnd = route.length;
+		redraw(true);
+		drawMap(true, true, true);
+		updateOutput();
+debug("analyze", 
+	"length=" + route.length + 
+	" minPace=" + minPace +
+	" maxPace=" + maxPace + 
+	" minAlt=" + minAlt +
+	" maxAlt=" + maxAlt);
+	} 
+
+
+	function loadDefaults()
+	{
+		var cookie = document.cookie.split(';');
+		for(var i = 0; i < cookie.length; i++)
+		{
+			cookie[i] = cookie[i].trim();
+		  	var row = cookie[i].split("=");
+			if(row[0].indexOf("mapLatitude") == 0) mapLatitude = parseFloat(row[1]);
+			else
+			if(row[0].indexOf("mapLongitude") == 0) mapLongitude = parseFloat(row[1]);
+			else
+			if(row[0].indexOf("mapZoom") == 0) mapZoom = parseFloat(row[1]);
+			else
+			if(row[0].indexOf("mapMode") == 0) mapMode = row[1];
+			else
+			if(row[0].indexOf("smoothingTime") == 0) smoothingTime = parseInt(row[1]);
+			else
+			if(row[0].indexOf("smoothingDistance") == 0) smoothingDistance = parseFloat(row[1]);
+			else
+			if(row[0].indexOf("url") == 0) defaultURL = row[1];
+			else
+			if(row[0].indexOf("constrain") == 0) constrain = parseInt(row[1]);
+			else
+			if(row[0].indexOf("timeFormat") == 0) timeFormat = parseInt(row[1]);
+
+
+//			debug("loadDefaults", row[0] + "=" + row[1]);
+//			if(row[0].indexOf("minPace") == 0) minPace = parseInt(row[1]);
+//			else
+//			if(row[0].indexOf("maxPace") == 0) maxPace = parseInt(row[1]);
+//			else
+//			if(row[0].indexOf("minAlt") == 0) minAlt = parseInt(row[1]);
+//			else
+//			if(row[0].indexOf("maxAlt") == 0) maxAlt = parseInt(row[1]);
+//			else
+
+		}
+//		debug("loadDefaults", document.cookie);
+//		debug("loadDefaults", defaultURL);
+	}
+	
+	function setCookie(name, value) 
+	{
+        var date = new Date();
+		var days = 60;
+        date.setTime(date.getTime()+(days * 24 * 60 * 60 * 1000));
+        var expires = "; expires=" + date.toGMTString();
+	    document.cookie = name + "=" + value + expires;
+	}
+
+	function saveDefaults()
+	{
+		setCookie("mapLatitude", mapLatitude);
+		setCookie("mapLongitude", mapLongitude);
+		setCookie("mapZoom", mapZoom);
+		setCookie("mapMode", mapMode);
+
+//		setCookie("minPace", minPace);
+//		setCookie("maxPace", maxPace);
+//		setCookie("minAlt", minAlt);
+//		setCookie("maxAlt", maxAlt);
+		setCookie("smoothingTime", smoothingTime);
+		setCookie("smoothingDistance", smoothingDistance);
+		setCookie("url", defaultURL);
+		setCookie("constrain", constrain);
+		setCookie("timeFormat", timeFormat);
+
+//		debug("saveDefaults", document.cookie);
+	}
+
+
+</script>
+
+
+
+
+
+
+

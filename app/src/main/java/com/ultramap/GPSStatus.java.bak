@@ -1,0 +1,66 @@
+package com.ultramap;
+
+import com.ultramap.R;
+
+import android.os.Bundle;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.CheckBox;
+import android.widget.TextView;
+
+public class GPSStatus extends WindowBase
+{
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        Main.initialize(this);
+        setContentView(R.layout.gps_status);
+        
+        CheckBox checkbox = (CheckBox) findViewById(R.id.keep_alive);
+        checkbox.setChecked(Settings.keepAlive);
+   }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+
+    public boolean onOptionsItemSelected(MenuItem item) 
+    {
+    	return Main.onOptionsItemSelected(this, item);
+    }
+    
+    public void onClick(View view)
+    {
+    	CheckBox checkbox = null;
+    	
+    	
+        switch (view.getId()){
+	        	
+        case R.id.keep_alive:
+        	Log.v("GPSStatus", "onClick");
+        	checkbox = (CheckBox) findViewById(R.id.keep_alive);
+        	Settings.keepAlive = checkbox.isChecked();
+        	break;
+        }
+    }
+
+	public void updateGUI()
+	{
+		if(Main.main == null) return;
+		
+        TextView title = (TextView)findViewById(R.id.satellites);
+//        Log.v("GPSStatus", "updateGUI main=" + Main.main);
+        if(title != null)
+        	title.setText(Integer.toString(Main.main.satelliteCount));
+        title = (TextView)findViewById(R.id.rate);
+        if(title != null)
+        	title.setText(Integer.toString(Main.main.totalUpdates));
+
+	}
+
+}

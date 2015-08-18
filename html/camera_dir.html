@@ -1,0 +1,53 @@
+<meta charset="utf-8">
+
+<font face="helvetica"><b>
+
+<div id="file_list"></div>
+
+
+<script src="jquery-2.1.1.min.js"></script>
+
+<script>
+
+var files = null;
+
+$.ajax({
+	type: 'GET',
+	url: "/camlist",
+	dataType: 'jsonp',
+	success: drawList,
+	error: function(jqxhr, status, error) {
+		console.log("fuck", jqxhr, status, error);
+	}
+});
+
+
+function drawList(data)
+{
+	files = data.files;
+	
+//	console.log("success");
+//	console.log("files=", files.length);
+	
+	$(file_list).append("<table>\n");
+	for(var i = 0; i < files.length; i++)
+	{
+		var file = files[i];
+		var path = file[0];
+		var size = file[1];
+		var date = file[2];
+		$(file_list).append(
+			"<tr><td><a href=\"" + path + "\">" + 
+			path + 
+			"</a></td>" + 
+			"<td>" + size + "</td>" +
+			"<td>" + date + "</td>" +
+			"</tr>\n");
+	}
+}
+
+</script>
+
+
+
+
