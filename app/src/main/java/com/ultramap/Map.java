@@ -17,6 +17,7 @@ import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlSerializer;
 
+import com.google.android.gms.maps.MapsInitializer;
 import com.ultramap.R;
 
 import android.app.AlertDialog;
@@ -64,7 +65,7 @@ public class Map extends WindowBase implements OnMapClickListener, OnCameraChang
         Main.initialize(this);
         setContentView(R.layout.map);
         
-        
+        MapsInitializer.initialize(getApplicationContext());
         map = ((MapFragment) getFragmentManager().findFragmentById(R.id.map))
                 .getMap();
         Log.v("Map", "onCreate map=" + map);
@@ -97,7 +98,7 @@ public class Map extends WindowBase implements OnMapClickListener, OnCameraChang
         {
 //        	button.setVisibility(View.GONE);
         }
-        
+
         if(redMarker == null) redMarker = BitmapDescriptorFactory.fromResource(R.raw.marker32x32);
         if(greenMarker == null) greenMarker = BitmapDescriptorFactory.fromResource(R.raw.marker32x32green);
         if(headingBitmap == null) headingBitmap = BitmapDescriptorFactory.fromResource(R.raw.cursor);
@@ -219,7 +220,8 @@ public class Map extends WindowBase implements OnMapClickListener, OnCameraChang
     		break;
 
     	case R.id.menu_savelog:
-    		saveRoute(false);
+			FileSelect.nextWindow = Map.class;
+			Main.saveRoute(false);
     		break;
 
 //    	case R.id.menu_savegpx:
@@ -248,37 +250,7 @@ public class Map extends WindowBase implements OnMapClickListener, OnCameraChang
     }
 
 
-	public void saveRoute(boolean isGPX) {
-		Settings.saveGPX = isGPX;
-		Settings.selectLoad = false;
-		Settings.selectSave = false;
-		Settings.selectSaveLog = true;
-		FileSelect.nextWindow = Map.class;
-// create a default filename
-		if(FileSelect.selectedFile == null ||
-				FileSelect.selectedFile.length() == 0)
-		{
-			if(Settings.log.size() > 0)
-			{
-				RoutePoint point = Settings.log.get(Settings.log.size() - 1);
-				Calendar end = Calendar.getInstance();
-				end.setTimeInMillis(point.time * 1000);
-				Formatter format = new Formatter();
-				format.format("%04d_%02d_%02dT%02d_%02d_%02dZ.%s",
-						end.get(Calendar.YEAR),
-						end.get(Calendar.MONTH) + 1,
-						end.get(Calendar.DAY_OF_MONTH),
-						end.get(Calendar.HOUR_OF_DAY),
-						end.get(Calendar.MINUTE),
-						end.get(Calendar.SECOND),
-						Settings.getSaveExtension());
-				String filename = format.toString();
-				FileSelect.selectedFile = filename;
-			}
-		}
-		startActivity( new Intent(Main.context, FileSelect.class));
-	}
-    
+
 
 	@Override
 	public void onMapClick(LatLng point) {
@@ -321,27 +293,7 @@ public class Map extends WindowBase implements OnMapClickListener, OnCameraChang
 	
 	void toggleRecording()
 	{
-		Settings.recordRoute = !Settings.recordRoute;
-	
-		
-		if(Settings.recordRoute)
-		{
-			Main.startLog();
-			Main.sayText("Recording started");
-		}
-		else
-		{
-			// just stopped
-			Settings.logTimer.stop();
-			Main.sayText("Recording paused");
-		}
-
-// want pause to resume from previous point
-//		Settings.prevFineXYZ = null;
-//		Settings.prevCoarseXYZ = null;
-		
-		Settings.save(Main.context);
-		Settings.saveState(Main.context);
+		Main.toggleRecording();
 		refresh();
 	}
 
@@ -588,149 +540,126 @@ public class Map extends WindowBase implements OnMapClickListener, OnCameraChang
 	
 	void loadRoute(String file)
 	{
-    	Log.v("Map", "loadRoute " + file);
-    	
-    	boolean routeChanged = false;
-    	if(Settings.currentRoute == null ||
-    			Settings.currentRoute.contentEquals(file))
-    	{
-    		routeChanged = true;
-    	}
-    	Settings.currentRoute = file;
-    	if(routeChanged) Settings.save(Main.context);
+    	Log.v("Map", "loadRoute " + file + " isDirectory=" + new File(file).isDirectory());
 
-    	
-    	Settings.route.clear();
-   	
-		
+		boolean routeChanged = false;
+		if (Settings.currentRoute == null ||
+				Settings.currentRoute.contentEquals(file)) {
+			routeChanged = true;
+		}
+		Settings.currentRoute = file;
+		if (routeChanged) Settings.save(Main.context);
+
+
+		Settings.route.clear();
+
+
 		XmlPullParser xpp = Xml.newPullParser();
+			boolean success = false;
 		try {
 			xpp.setInput(new FileReader(file));
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (XmlPullParserException e) {
+			success = true;
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		
-		
+
+			// XML parser can't detect a 0 length file, so it just hangs
+
+		if(!success) return;
+
 		int eventType = xpp.END_DOCUMENT;
 		try {
 			eventType = xpp.getEventType();
-		} catch (XmlPullParserException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		
+
 		String startText = "";
 		boolean getCoordinates = true;
 		boolean getAbsTime = false;
 		boolean getRelTime = false;
 		int currentPoint = 0;
-		
-		do
-		{
-			if(eventType == xpp.START_TAG)
-			{
+
+		do {
+			if (eventType == xpp.START_TAG) {
 				startText = xpp.getName();
-//				Log.v("Map", "loadRoute 1 startText=" + startText);
-			}
-			else
-			if(eventType == xpp.END_TAG)
-			{
-				
-			}
-			else
-			if(eventType == xpp.TEXT)
-			{
-// route
-				if(startText.startsWith("coordinates") && getCoordinates)
-				{
+	//				Log.v("Map", "loadRoute 1 startText=" + startText);
+			} else if (eventType == xpp.END_TAG) {
+
+			} else if (eventType == xpp.TEXT) {
+	// route
+				if (startText.startsWith("coordinates") && getCoordinates) {
 					String text = xpp.getText();
 					String[] tokens = text.split("[\t\n ]+");
-					for(int i = 0; i < tokens.length; i++)
-					{
+					for (int i = 0; i < tokens.length; i++) {
 						String[] tokens2 = tokens[i].split("[,]");
-						if(tokens2.length >= 2)
-						{
-							
-//							Log.v("Map", "loadRoute 2 " + tokens2[0] +
-//								" " +
-//								tokens2[1]);
-						
+						if (tokens2.length >= 2) {
+
+	//							Log.v("Map", "loadRoute 2 " + tokens2[0] +
+	//								" " +
+	//								tokens2[1]);
+
 							RoutePoint newPoint = new RoutePoint();
 							newPoint.latitude = Float.parseFloat(tokens2[1]);
 							newPoint.longitude = Float.parseFloat(tokens2[0]);
 							newPoint.altitude = Float.parseFloat(tokens2[2]);
-							
-							
-							
-							
+
+
 							Settings.route.add(newPoint);
-							
+
 						}
 					}
-				}
-				else
-				if(startText.startsWith("Folder"))
-				{
-					if(getCoordinates)
-					{
+				} else if (startText.startsWith("Folder")) {
+					if (getCoordinates) {
 						getCoordinates = false;
 						getAbsTime = true;
 						currentPoint = 0;
-					}
-					else
-					if(getAbsTime)
-					{
-						getAbsTime= false;
+					} else if (getAbsTime) {
+						getAbsTime = false;
 						getRelTime = true;
 						currentPoint = 0;
 					}
-				}
-				else
-				if(startText.startsWith("begin") && getAbsTime)
-				{
+				} else if (startText.startsWith("begin") && getAbsTime) {
 					String text = xpp.getText();
 					Calendar c = Calendar.getInstance();
-//					Log.v("Map", "loadRoute " + c.getTimeZone().getOffset(c.getTimeInMillis()) / 60 / 60 / 1000);
+	//					Log.v("Map", "loadRoute " + c.getTimeZone().getOffset(c.getTimeInMillis()) / 60 / 60 / 1000);
 					int year = Integer.parseInt(text.substring(0, 4));
 					int month = Integer.parseInt(text.substring(5, 7)) - 1;
 					int day = Integer.parseInt(text.substring(8, 10));
 					int hour = Integer.parseInt(text.substring(11, 13));
 					int minute = Integer.parseInt(text.substring(14, 16));
 					int second = Integer.parseInt(text.substring(17, 19));
-//					Log.v("Map", "loadRoute " + year + 
-//							" " + month + 
-//							" " + day + 
-//							" " + hour +
-//							" " + minute +
-//							" " + second +
-//							" " + offsetHours);
+	//					Log.v("Map", "loadRoute " + year +
+	//							" " + month +
+	//							" " + day +
+	//							" " + hour +
+	//							" " + minute +
+	//							" " + second +
+	//							" " + offsetHours);
 					c.set(year, month, day, hour, minute, second);
 
-//					TimeZone timeZone = TimeZone.getDefault();
-//					timeZone.setRawOffset(0);
-//					c.setTimeZone(timeZone);
-//					Log.v("Map", "loadRoute " + hour +
-//							" " + c.get(Calendar.HOUR_OF_DAY));
+	//					TimeZone timeZone = TimeZone.getDefault();
+	//					timeZone.setRawOffset(0);
+	//					c.setTimeZone(timeZone);
+	//					Log.v("Map", "loadRoute " + hour +
+	//							" " + c.get(Calendar.HOUR_OF_DAY));
 
-					if(currentPoint < Settings.route.size())
-					{
+					if (currentPoint < Settings.route.size()) {
 						RoutePoint point = Settings.route.get(currentPoint);
 						point.time = c.getTimeInMillis() / 1000;
 						currentPoint++;
 					}
 				}
 			}
-			
+
 			try {
 				eventType = xpp.next();
-			} catch (XmlPullParserException e) {
+			} catch (Exception e) {
 				e.printStackTrace();
-			} catch (IOException e) {
-				e.printStackTrace();
+				break;
 			}
-		} while(eventType != xpp.END_DOCUMENT);
-		
+		} while (eventType != xpp.END_DOCUMENT);
+
 		refresh();
 
 	}

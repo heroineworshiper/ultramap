@@ -1,14 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    xmlns:android="http://schemas.android.com/apk/res/android">
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical" >
+    android:orientation="vertical"
+    android:weightSum="1">
     <TableLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content" 
         android:shrinkColumns="*"  
     	android:stretchColumns="*">
-   <TableRow
+
+        <TableRow
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" >
+
+        <RelativeLayout
+            android:background="#ffffffff"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:gravity="center_horizontal"
+            android:orientation="horizontal"
+            android:layout_weight="1">
+
+            <Button
+                android:id="@+id/settings_pause"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal|center_vertical"
+                android:layout_weight="1"
+                android:clickable="true"
+                android:onClick="onClick"
+                android:text="Record"/>
+        </RelativeLayout>
+        </TableRow>
+
+
+        <TableRow
        android:layout_width="wrap_content"
        android:layout_height="wrap_content" >
         
@@ -24,7 +56,11 @@
         android:text="0"
         android:textAppearance="?android:attr/textAppearanceLarge" />
     </TableRow>
+
+
+
    <TableRow
+       android:visibility="gone"
        android:layout_width="wrap_content"
        android:layout_height="wrap_content" >
         
@@ -40,6 +76,8 @@
         android:text="0"
         android:textAppearance="?android:attr/textAppearanceLarge" />
     </TableRow>
+
+
    <TableRow
        android:layout_width="wrap_content"
        android:layout_height="wrap_content" >
@@ -56,7 +94,11 @@
         android:text="0"
         android:textAppearance="?android:attr/textAppearanceLarge" />
     </TableRow>
+
+
+
    <TableRow
+       android:visibility="gone"
        android:layout_width="wrap_content"
        android:layout_height="wrap_content" >
         
@@ -94,7 +136,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Enable Service"
-        android:onClick="onClick" />
+        android:onClick="onClick"
+        android:visibility="gone" />
 
     
     <CheckBox
@@ -109,7 +152,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="External GPS"
-        android:onClick="onClick" />
+        android:onClick="onClick"
+        android:visibility="gone" />
 
     <CheckBox
         android:id="@+id/voice_feedback"
@@ -117,13 +161,53 @@
         android:layout_height="wrap_content"
         android:text="Voice Feedback"
         android:onClick="onClick" />
-    
+
+    <CheckBox
+        android:id="@+id/metronome"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Metronome"
+        android:onClick="onClick" />
+
+<LinearLayout android:layout_height="match_parent"
+    android:layout_width="match_parent"
+    android:orientation="horizontal">
+    <Button android:id="@+id/tempo_minus"
+            android:layout_width="50dp"
+            android:layout_height="wrap_content"
+            android:text="-"
+            android:onClick="onClick"/>
+    <EditText
+        android:id="@+id/beats_per_minute"
+        android:layout_width="75dp"
+        android:layout_height="wrap_content"
+        android:inputType="number"
+        android:gravity="center"
+        android:focusable="false"
+        android:text="60"
+        android:editable="true"/>
+    <Button android:id="@+id/tempo_plus"
+            android:layout_width="50dp"
+            android:layout_height="wrap_content"
+            android:text="+"
+            android:onClick="onClick"/>
+
+    <Spinner
+        android:id="@+id/sound_spinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+</LinearLayout>
+
+
     <TextView
         android:id="@+id/bluetooth_status"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Bluetooth status"
-        android:textAppearance="?android:attr/textAppearanceLarge" />
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:visibility="gone"
+        android:nestedScrollingEnabled="false"/>
     
     <TableLayout
         android:layout_width="match_parent"
@@ -144,6 +228,18 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
     </TableRow>
-   </TableLayout>
-        
+
+
+
+
+
+    </TableLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:text="New Text"
+            android:id="@+id/debug_text"
+            />
 </LinearLayout>
+</ScrollView>

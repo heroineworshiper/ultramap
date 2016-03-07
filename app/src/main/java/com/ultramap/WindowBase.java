@@ -83,7 +83,7 @@ public class WindowBase extends Activity implements Runnable {
 	};
 	
 	
-
+// the window update period in ms
 	static int DT = 200;
 }
 

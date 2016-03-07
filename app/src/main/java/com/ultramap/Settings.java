@@ -33,8 +33,9 @@ public class Settings {
 	static void load(Context context)
 	{
 		SharedPreferences file = context.getSharedPreferences("settings", 0);
-		
-		tempo = file.getInt("tempo", tempo);
+
+		beatsPerMinute = file.getInt("beatsPerMinute", beatsPerMinute);
+		metronome = file.getBoolean("metronome", metronome);
 		bearing = file.getFloat("bearing", (float)bearing);
 		latitude = file.getFloat("latitude", (float)latitude);
 		longitude = file.getFloat("longitude", (float)longitude);
@@ -49,10 +50,10 @@ public class Settings {
 		intervalRest = file.getInt("intervalRest", intervalRest);
 		intervalRestDistance = file.getFloat("intervalRestDistance", intervalRest);
 		restUnits = file.getInt("restUnits", restUnits);
-		intervalWork = file.getFloat("intervalWork", (float)intervalWork);
+		intervalWork = file.getFloat("intervalWork", (float) intervalWork);
 		intervalWorkTime = file.getInt("intervalWorkTime", intervalWorkTime);
 		workUnits = file.getInt("workUnits", workUnits);
-
+		sound = file.getInt("sound", sound);
 	}
 	
 	
@@ -61,7 +62,8 @@ public class Settings {
 		SharedPreferences file2 = context.getSharedPreferences("settings", 0);
 		SharedPreferences.Editor file = file2.edit();
 
-		file.putInt("tempo",  tempo);
+		file.putInt("beatsPerMinute",  beatsPerMinute);
+		file.putBoolean("metronome",  metronome);
 		file.putBoolean("enableService",  enableService);
 		file.putBoolean("externalGPS",  externalGPS);
 		file.putBoolean("voiceFeedback",  voiceFeedback);
@@ -79,6 +81,7 @@ public class Settings {
 		file.putInt("intervalWorkTime", intervalWorkTime);
 		file.putInt("restUnits", restUnits);
 		file.putInt("workUnits", workUnits);
+		file.putInt("sound", sound);
 
 		file.commit();
 		
@@ -265,7 +268,24 @@ public class Settings {
 		else
 			return "gpx";
 	}
-	
+
+	static int soundToFile(int sound)
+	{
+		switch(sound) {
+			case 0:
+				return R.raw.hi;
+			case 1:
+				return R.raw.cimbal;
+			case 2:
+				return R.raw.cowbell;
+			case 3:
+				return R.raw.dino;
+		}
+		return R.raw.hi;
+	}
+
+
+
 // meters before a new point is considered valid
     static double FINE_INCREMENT = 1.0;
 //    static double FINE_INCREMENT = 0.0;
@@ -289,7 +309,6 @@ public class Settings {
 	static double altitudeStep = 0;
 	static int fakeCounter = 0;
 
-	static int tempo;
 	// enable the ultramap service
 	static boolean enableService = true;
 	static boolean externalGPS = false;
@@ -305,10 +324,13 @@ public class Settings {
 // last voice readout
 	static double voicePosition = 0.0;
 // distance between voice positions, in meters
-	static double voiceInterval = Main.miToM(0.25);;
+	static double voiceInterval = Main.miToM(0.25);
 	static boolean mapIsTouched = false;
 	static int mapType = GoogleMap.MAP_TYPE_HYBRID;
 
+	static boolean metronome = false;
+	static int beatsPerMinute = 60;
+	static int sound = 0;
 
 // units
 	static final int SECONDS = 0;

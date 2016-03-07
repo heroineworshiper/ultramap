@@ -115,7 +115,7 @@ public class IntervalTraining extends WindowBase
         		Settings.intervalTimer.reset();
         		Settings.intervalState = Settings.WORK;
         		Settings.saveState(Main.context);
-        		Main.sayText("Reset");
+        		//Main.sayText("Reset");
             }
 
         });

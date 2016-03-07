@@ -15,5 +15,11 @@
         <item>Miles</item>
         <item>Meters</item>
     </string-array>
-    
+    <string-array name="sounds">
+        <item>Dave</item>
+        <item>Cymbal</item>
+        <item>Cowbell</item>
+        <item>Dino</item>
+    </string-array>
+
 </resources>

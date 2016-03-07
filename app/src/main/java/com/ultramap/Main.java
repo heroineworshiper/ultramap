@@ -16,8 +16,8 @@ import java.util.TimeZone;
 import java.util.Vector;
 
 import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GooglePlayServicesClient.ConnectionCallbacks;
-import com.google.android.gms.common.GooglePlayServicesClient.OnConnectionFailedListener;
+import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
+import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
@@ -56,9 +56,48 @@ import android.widget.Button;
 
 
 // GPS must be accessed by a Service instead of an IntentService
-public class Main extends Service implements 
-	OnConnectionFailedListener, ConnectionCallbacks, TextToSpeech.OnInitListener, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
+public class Main extends Service implements TextToSpeech.OnInitListener {
+	// only static variables survive the alarm calls
+	static Main main;
+	static Context context;
+	static Settings settings;
+	static boolean haveGUI = false;
+	static boolean haveLocation = false;
+	static long locationTime = 0;
+	static float locationAccuracy = 0;
+	static Timer lastLocationTimer = new Timer();
+	static int locationTimeout = 0;
+	static Location location;
+	// total location updates since restarting GPS
+	static int totalLocations = 0;
+	static ExternalClient externalClient;
+	static AlarmManager alarmManager;
+	static TextToSpeech tts;
+	static boolean ttsReady;
+	static OutputStream logTemp;
+	static int LOG_PACKET_SIZE = 32;
+	static String bluetoothStatus = "Bluetooth status";
+	static WebServer webServer;
+	// The number of loation threads.  Set real low to disable the location pool
+	static final int POOL_SIZE = 10;
+//	static final int POOL_SIZE = 1;
+	// in ms.  Set real high to disable the location pool
+	static final int MAX_AGE = 10000;
+//	static final int MAX_AGE = 1000000000;
+	// GPS timeouts in ms
+	// time to acquire the 1st signal
+	static final int GPS_TIMEOUT1 = 300000;
+	// time to give up after 1st signal is received
+	static final int GPS_TIMEOUT2 = 30000;
+	static LocationThread [] locationPool = new LocationThread[POOL_SIZE];
+	static boolean haveLocationPool = false;
+	static Metronome metronome = null;
+	static int prevTempo = 0;
+	static int prevSound = -1;
 	
+	
+	
+
 	public Main() {
 		super();
 		
@@ -72,6 +111,7 @@ public class Main extends Service implements
 
 		if(main == null) 
 		{
+			lastLocationTimer.start();
 //			Log.v("Main", "initialize");
 			loadState(context);
 			
@@ -187,7 +227,6 @@ public class Main extends Service implements
 		if(Settings.needRestart)
 		{
 			Settings.needRestart = false;
-            mGoogleApiClient = null;
 		}
 		
 		if(main == null)
@@ -215,22 +254,68 @@ public class Main extends Service implements
 				webServer.start();
 			}
 
-			if(mGoogleApiClient == null && !Settings.externalGPS)
+
+			long minAge = 0x7fffffff;
+			int minIndex = -1;
+			long maxAge = -1;
+			int maxIndex = -1;
+			int totalThreads = 0;
+			if(!Settings.externalGPS)
 			{
-                locationListener = new GPSLocationListener();
+				// Find most recent locationThread
+				for(int i = 0; i < POOL_SIZE; i++)
+				{
+					if(locationPool[i] != null) {
+						totalThreads++;
+						long age = locationPool[i].timer.getTime();
+						if(age < minAge)
+						{
+							minAge = age;
+							minIndex = i;
+						}
 
-                mGoogleApiClient = new GoogleApiClient.Builder(this)
-                        .addConnectionCallbacks(this)
-                        .addOnConnectionFailedListener(this)
-                        .addApi(LocationServices.API)
-                        .build();
+						if(age > maxAge)
+						{
+							maxAge = age;
+							maxIndex = i;
+						}
+					}
+				}
 
-                mGoogleApiClient.connect();
 
-	            Log.v("Main", "onStartCommand started GPS");
+				// time to create another locationThread
+				if(minAge > MAX_AGE)
+				{
+					int index = -1;
+					if(totalThreads < POOL_SIZE)
+					{
+						for(int i = 0; i < POOL_SIZE; i++)
+						{
+							if(locationPool[i] == null)
+							{
+								index = i;
+								break;
+							}
+						}
+					}
+					else
+					{
+						// replace oldest one
+						index = maxIndex;
+					}
+
+					if(locationPool[index] != null)
+					{
+						locationPool[index].stop();
+					}
+
+					Log.v("Main", "onStartCommand new locationThread in slot " + index);
+					locationPool[index] = new LocationThread();
+					haveLocationPool = true;
+				}
 			}
 			else
-			if(externalClient == null && Settings.externalGPS)
+			if(externalClient == null)
 			{
 				externalClient = new ExternalClient();
 				externalClient.start();
@@ -238,12 +323,44 @@ public class Main extends Service implements
 
 
 
+
+
 			Location location = null;
-			if(!Settings.externalGPS &&
-                    mGoogleApiClient != null &&
-                    mGoogleApiClient.isConnected())
+			if(!Settings.externalGPS)
 			{
-				location = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+				// Get location from most recent locationThread
+				if(minIndex < 0)
+				{
+					minIndex = POOL_SIZE - 1;
+				}
+
+				for(int i = 0; i < POOL_SIZE; i++)
+				{
+					if(locationPool[minIndex] != null)
+					{
+						location = LocationServices.FusedLocationApi.getLastLocation(
+								locationPool[minIndex].mGoogleApiClient);
+						if(location != null)
+						{
+							break;
+						}
+
+						minIndex--;
+						if(minIndex < 0)
+						{
+							minIndex = POOL_SIZE - 1;
+						}
+					}
+				}
+
+
+				// Can't pull the location.  Have to push it from the GPSLocationListeners to this.location, then copy it.
+				//synchronized(this)
+				//{
+				//	if(this.location != null) {
+				//		location = new Location(this.location);
+				//	}
+				//}
 			}
 			else
 			if(Settings.externalGPS &&
@@ -251,14 +368,69 @@ public class Main extends Service implements
 			{
 				location = externalClient.getLastLocation();
 			}
-//			if(location != null)
-//				Log.v("Main", "run " + location.getAccuracy());
-			
+
+
+
+			// new location hasn't been received since restarting
+			locationTimeout = GPS_TIMEOUT1;
+			if(totalLocations > 0)
+			{
+				// new location has been received since restarting
+				locationTimeout = GPS_TIMEOUT2;
+			}
+
+			Log.v("Main", " Timer=" + lastLocationTimer.getTime() +
+					" timeout=" + locationTimeout +
+					" newtime=" + ((location == null ? -1 : location.getTime()) % 60000) +
+					" prevtime=" + (locationTime % 60000) +
+					" location=" + (location != null));
+
+
+			if(location != null)
+			{
+				if(location.getTime() == locationTime)
+				{
+					// if the location time hasn't changed in too long, restart
+					if(lastLocationTimer.getTime() > locationTimeout)
+					{
+						haveLocation = false;
+						restartGPS();
+					}
+				}
+				else
+				{
+					// the location time has changed
+					totalLocations++;
+					lastLocationTimer.reset();
+					lastLocationTimer.start();
+					haveLocation = true;
+				}
+
+				locationTime = location.getTime();
+				locationAccuracy = location.getAccuracy();
+
+				if(!Settings.externalGPS) {
+					synchronized (this) {
+						this.location = location;
+					}
+				}
+			}
+			else
+			{
+				haveLocation = false;
+				// if the location time hasn't changed in too long, restart
+				if(lastLocationTimer.getTime() > locationTimeout)
+				{
+					restartGPS();
+				}
+			}
+
+
+
 			if(location != null && 
 				location.getAccuracy() < Settings.MIN_ACCURACY)
 			{
-				haveLocation = true;
-				
+
 				if(Settings.fakeGPS)
 				{
 					location.setLatitude(Settings.fakeLatitude);
@@ -299,17 +471,8 @@ public class Main extends Service implements
                     updateLog(location);
 				}
 				
-				
-				synchronized(this)
-				{
-					this.location = location;
-				}
 			}
-			else
-			{
-				haveLocation = false;
-			}
-			
+
 //            int maxSatellites = status.getMaxSatellites();
 //
 //            Iterator<GpsSatellite> it = status.getSatellites().iterator();
@@ -323,6 +486,7 @@ public class Main extends Service implements
             
 			if(Settings.intervalActive)
 			{
+
 				updateInterval(location);
 			}
 			
@@ -333,18 +497,44 @@ public class Main extends Service implements
 		
 		}
 		else
-		if(mGoogleApiClient != null)
+		if(haveLocationPool == true)
 		{
-            if(mGoogleApiClient != null) {
-                LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient,
-                        locationListener);
-                mGoogleApiClient.disconnect();
-                mGoogleApiClient = null;
-            }
+			for(int i = 0; i < POOL_SIZE; i++)
+			{
+				if(locationPool[i] != null)
+				{
+					locationPool[i].stop();
+					locationPool[i] = null;
+				}
+			}
+
 
 			haveLocation = false;
 			Log.v("Main", "onStartCommand stopped GPS");
 		}
+
+		if((prevTempo != Settings.beatsPerMinute ||
+			prevSound != Settings.sound) &&
+				metronome != null)
+		{
+			metronome.stop2();
+			metronome = null;
+		}
+
+		if(Settings.metronome && metronome == null)
+		{
+			metronome = new Metronome();
+			metronome.start();
+			prevTempo = Settings.beatsPerMinute;
+			prevSound = Settings.sound;
+		}
+		else
+		if(!Settings.metronome && metronome != null)
+		{
+			metronome.stop2();
+			metronome = null;
+		}
+		
 		
 		Settings.saveState(context);
 
@@ -354,7 +544,24 @@ public class Main extends Service implements
 		return 0;
 
 	}
-	
+
+
+	void restartGPS()
+	{
+		// stop all the location objects
+		for(int i = 0; i < POOL_SIZE; i++)
+		{
+			if(locationPool[i] != null) {
+				locationPool[i].stop();
+				locationPool[i] = null;
+			}
+
+		}
+		lastLocationTimer.reset();
+		lastLocationTimer.start();
+
+		totalLocations = 0;
+	}
 
 	void setAlarm()
 	{
@@ -366,7 +573,32 @@ public class Main extends Service implements
 	        pi);
 		
 	}
-	
+
+	static void toggleRecording()
+	{
+		Settings.recordRoute = !Settings.recordRoute;
+
+
+		if(Settings.recordRoute)
+		{
+			Main.startLog();
+			Main.sayText("Recording started");
+		}
+		else
+		{
+			// just stopped
+			Settings.logTimer.stop();
+			Main.sayText("Recording paused");
+		}
+
+// want pause to resume from previous point
+//		Settings.prevFineXYZ = null;
+//		Settings.prevCoarseXYZ = null;
+
+		Settings.save(Main.context);
+		Settings.saveState(Main.context);
+	}
+
 	static double getIntervalDistance()
 	{
 		double distance = 0;
@@ -1295,9 +1527,9 @@ public class Main extends Service implements
  	// distance between 2 points in meters
  	double getDistance(RoutePoint point1, RoutePoint point2)
  	{
- 		XYZ result1 = llh_to_xyz(point1.latitude, 
- 				point1.longitude, 
- 				point1.altitude);
+ 		XYZ result1 = llh_to_xyz(point1.latitude,
+				point1.longitude,
+				point1.altitude);
  		XYZ result2 = llh_to_xyz(point2.latitude, 
  				point2.longitude, 
  				point2.altitude);
@@ -1588,13 +1820,48 @@ public class Main extends Service implements
 		}
 	}
 
-	static void saveRoute(String path) 
-    {
-    	saveRoute(path, Settings.route);
+
+/// entry point from GUI
+	static void saveRoute(boolean isGPX) {
+		Settings.saveGPX = isGPX;
+		Settings.selectLoad = false;
+		Settings.selectSave = false;
+		Settings.selectSaveLog = true;
+// create a default filename
+		if(FileSelect.selectedFile == null ||
+				FileSelect.selectedFile.length() == 0)
+		{
+			if(Settings.log.size() > 0)
+			{
+				RoutePoint point = Settings.log.get(Settings.log.size() - 1);
+				Calendar end = Calendar.getInstance();
+				end.setTimeInMillis(point.time * 1000);
+				Formatter format = new Formatter();
+				format.format("%04d_%02d_%02dT%02d_%02d_%02dZ.%s",
+						end.get(Calendar.YEAR),
+						end.get(Calendar.MONTH) + 1,
+						end.get(Calendar.DAY_OF_MONTH),
+						end.get(Calendar.HOUR_OF_DAY),
+						end.get(Calendar.MINUTE),
+						end.get(Calendar.SECOND),
+						Settings.getSaveExtension());
+				String filename = format.toString();
+				FileSelect.selectedFile = filename;
+			}
+		}
+		Main.context.startActivity( new Intent(Main.context, FileSelect.class));
 	}
 
-	static void saveLog(String path) 
+	static void saveRoute(String path) 
     {
+		saveRoute(path, Settings.route);
+	}
+
+
+
+
+
+	static void saveLog(String path) {
 		sayText("Saving log");
     	saveRoute(path, Settings.log);
     	sayText("log saved");
@@ -1620,36 +1887,8 @@ public class Main extends Service implements
  		if(ttsReady) tts.speak(text, TextToSpeech.QUEUE_ADD, null);
  	}
 
-	@Override
-	public void onConnectionFailed(ConnectionResult result) {
-		
-	}
-
-	@Override
-	public void onConnected(Bundle connectionHint) {
-// Only getting 1hz
-        final int locationInterval = 1000;
-
-        LocationRequest mLocationRequest=new LocationRequest();
-        mLocationRequest.setInterval(locationInterval);
-        mLocationRequest.setFastestInterval(locationInterval);
-        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
 
 
-        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient,
-                mLocationRequest,
-                locationListener);
-	}
-
-    @Override
-    public void onConnectionSuspended(int i) {
-
-    }
-
-    @Override
-	public void onDisconnected() {
-		
-	}
 	@Override
 	public void onInit(int status) 
 	{
@@ -1677,22 +1916,4 @@ public class Main extends Service implements
 		bluetoothStatus = text;
 	}
 	
-	// only static variables survive the alarm calls
-    static Main main;
-    static Context context;
-    static Settings settings;
-    static boolean haveGUI = false;
-	static boolean haveLocation = false;
-	static Location location;
-	static int totalUpdates = 0;
-	static GoogleApiClient mGoogleApiClient;
-	static GPSLocationListener locationListener;
-    static ExternalClient externalClient;
-	static AlarmManager alarmManager;
-	static TextToSpeech tts;
-	static boolean ttsReady;
-	static OutputStream logTemp;
-	static int LOG_PACKET_SIZE = 32;
-	static String bluetoothStatus = "Bluetooth status";
-	static WebServer webServer;
 }
