@@ -8,9 +8,11 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Formatter;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 import java.util.Vector;
@@ -40,18 +42,30 @@ import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.graphics.SurfaceTexture;
+import android.hardware.Camera;
+//import android.hardware.camera2.CameraAccessException;
+//import android.hardware.camera2.CameraCaptureSession;
+//import android.hardware.camera2.CameraCharacteristics;
+//import android.hardware.camera2.CameraDevice;
+//import android.hardware.camera2.CameraManager;
+//import android.hardware.camera2.CameraMetadata;
+//import android.hardware.camera2.CaptureRequest;
 import android.location.GpsSatellite;
 import android.location.GpsStatus;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Binder;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.SystemClock;
 import android.speech.tts.TextToSpeech;
 import android.util.Log;
+//import android.util.Size;
 import android.view.MenuItem;
+//import android.view.Surface;
 import android.widget.Button;
 
 
@@ -94,8 +108,13 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 	static Metronome metronome = null;
 	static int prevTempo = 0;
 	static int prevSound = -1;
-	
-	
+	static boolean flashlightOn = false;
+	static Camera cam = null;
+//	static CameraManager cameraManager = null;
+//	static CameraDevice cameraDevice = null;
+//	static CameraCaptureSession cameraSession = null;
+//	static CaptureRequest.Builder cameraBuilder = null;
+
 	
 
 	public Main() {
@@ -114,7 +133,7 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 			lastLocationTimer.start();
 //			Log.v("Main", "initialize");
 			loadState(context);
-			
+			updateFlashlight();
 			
 			Intent serviceIntent = new Intent(activity, Main.class);
 			activity.startService(serviceIntent);
@@ -241,6 +260,7 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 	 		tts = new TextToSpeech(context, this);
 
 			loadState(context);
+			updateFlashlight();
 		}
 
 		if(Settings.enableService)
@@ -561,6 +581,137 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 		lastLocationTimer.start();
 
 		totalLocations = 0;
+	}
+
+	public static void updateFlashlight()
+	{
+		if(!flashlightOn && Settings.flashlight)
+		{
+			if (cam == null)
+			{
+				cam = Camera.open();
+			}
+
+			Camera.Parameters p = cam.getParameters();
+			p.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
+			cam.setParameters(p);
+			cam.startPreview();
+			flashlightOn = true;
+
+//			if(cameraManager == null)
+//			{
+//				try {
+//					cameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
+//					cameraManager.openCamera("0", new CameraDevice.StateCallback()
+//					{
+//
+//						@Override
+//						public void onOpened(CameraDevice camera) {
+//							cameraDevice = camera;
+//							try
+//							{
+//								cameraBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_MANUAL);
+//								cameraBuilder.set(CaptureRequest.FLASH_MODE, CameraMetadata.FLASH_MODE_TORCH);
+//								List<Surface> list = new ArrayList<Surface>();
+//								SurfaceTexture surfaceTexture = new SurfaceTexture(1);
+//								Size size = getSmallestSize(cameraDevice.getId());
+//								surfaceTexture.setDefaultBufferSize(size.getWidth(), size.getHeight());
+//                				Surface surface = new Surface(surfaceTexture);
+//                				list.add(surface);
+//                				cameraBuilder.addTarget(surface);
+//                				camera.createCaptureSession(list,
+//									new CameraCaptureSession.StateCallback()
+//									{
+//										@Override
+//        								public void onConfigured(CameraCaptureSession session)
+//										{
+//            								cameraSession = session;
+//            								try {
+//                								cameraSession.setRepeatingRequest(cameraBuilder.build(), null, null);
+//            									flashlightOn = true;
+//											} catch (CameraAccessException e) {
+//                								e.printStackTrace();
+//            								}
+//        								}
+//
+//        								@Override
+//        								public void onConfigureFailed(CameraCaptureSession session)
+//										{
+//
+//        								}
+//									}, null);
+//							}catch(Exception e)
+//							{
+//
+//							}
+//						}
+//
+//						private Size getSmallestSize(String cameraId) throws CameraAccessException
+//						{
+//        					Size[] outputSizes = cameraManager.getCameraCharacteristics(cameraId)
+//                					.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+//                					.getOutputSizes(SurfaceTexture.class);
+//        					if (outputSizes == null || outputSizes.length == 0) {
+//            					throw new IllegalStateException(
+//                    					"Camera " + cameraId + "doesn't support any outputSize.");
+//        					}
+//        					Size chosen = outputSizes[0];
+//        					for (Size s : outputSizes) {
+//            					if (chosen.getWidth() >= s.getWidth() && chosen.getHeight() >= s.getHeight()) {
+//                					chosen = s;
+//            					}
+//        					}
+//        					return chosen;
+//    					}
+//
+//
+//						@Override
+//						public void onDisconnected(CameraDevice camera) {
+//
+//						}
+//
+//						@Override
+//						public void onError(CameraDevice camera, int error) {
+//
+//						}
+//
+//
+//
+//					}, null);
+//
+//
+//				}
+//				catch(Exception e)
+//				{
+//
+//				}
+//			}
+		}
+
+
+		if(flashlightOn && !Settings.flashlight)
+		{
+
+			if (cam == null)
+			{
+				cam = Camera.open();
+			}
+
+
+			cam.stopPreview();
+			cam.release();
+			cam = null;
+
+//			if(cameraSession != null)
+//			{
+//				cameraSession.close();
+//				cameraDevice.close();
+//				cameraDevice = null;
+//				cameraSession = null;
+//			}
+			flashlightOn = false;
+		}
+
 	}
 
 	void setAlarm()

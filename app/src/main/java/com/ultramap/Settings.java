@@ -54,6 +54,7 @@ public class Settings {
 		intervalWorkTime = file.getInt("intervalWorkTime", intervalWorkTime);
 		workUnits = file.getInt("workUnits", workUnits);
 		sound = file.getInt("sound", sound);
+		flashlight = file.getBoolean("flashlight", flashlight);
 	}
 	
 	
@@ -82,6 +83,7 @@ public class Settings {
 		file.putInt("restUnits", restUnits);
 		file.putInt("workUnits", workUnits);
 		file.putInt("sound", sound);
+		file.putBoolean("flashlight", flashlight);
 
 		file.commit();
 		
@@ -422,4 +424,5 @@ public class Settings {
 	static XYZ prevCoarseXYZ;
 // need to restart GPS
 	static boolean needRestart = true;
+	static boolean flashlight = false;
 }

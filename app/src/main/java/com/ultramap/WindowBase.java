@@ -78,7 +78,9 @@ public class WindowBase extends Activity implements Runnable {
 		@Override
         public void handleMessage(Message msg) {
 			if(msg.obj != null)
+			{
 				((WindowBase) msg.obj).updateGUI();
+			}
         }
 	};
 	

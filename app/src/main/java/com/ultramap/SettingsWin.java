@@ -50,6 +50,8 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
         checkbox.setChecked(Settings.voiceFeedback);
         checkbox = (CheckBox) findViewById(R.id.metronome);
         checkbox.setChecked(Settings.metronome);
+        checkbox = (CheckBox) findViewById(R.id.flashlight);
+        checkbox.setChecked(Settings.flashlight);
 
         EditText number = (EditText)findViewById(R.id.beats_per_minute);
         number.setText(Integer.toString(Settings.beatsPerMinute));
@@ -259,6 +261,13 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
                 checkbox = (CheckBox) findViewById(R.id.metronome);
                 Settings.metronome = checkbox.isChecked();
                 Settings.save(Main.context);
+                break;
+
+            case R.id.flashlight:
+                checkbox = (CheckBox) findViewById(R.id.flashlight);
+                Settings.flashlight = checkbox.isChecked();
+                Settings.save(Main.context);
+                Main.main.updateFlashlight();
                 break;
 
             case R.id.tempo_minus: {
