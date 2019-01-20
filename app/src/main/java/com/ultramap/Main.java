@@ -94,16 +94,16 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 	static WebServer webServer;
 	// The number of loation threads.  Set real low to disable the location pool
 	static final int POOL_SIZE = 10;
-//	static final int POOL_SIZE = 1;
+	//	static final int POOL_SIZE = 1;
 	// in ms.  Set real high to disable the location pool
 	static final int MAX_AGE = 10000;
-//	static final int MAX_AGE = 1000000000;
+	//	static final int MAX_AGE = 1000000000;
 	// GPS timeouts in ms
 	// time to acquire the 1st signal
 	static final int GPS_TIMEOUT1 = 300000;
 	// time to give up after 1st signal is received
 	static final int GPS_TIMEOUT2 = 30000;
-	static LocationThread [] locationPool = new LocationThread[POOL_SIZE];
+	static LocationThread[] locationPool = new LocationThread[POOL_SIZE];
 	static boolean haveLocationPool = false;
 	static Metronome metronome = null;
 	static int prevTempo = 0;
@@ -115,38 +115,33 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 //	static CameraCaptureSession cameraSession = null;
 //	static CaptureRequest.Builder cameraBuilder = null;
 
-	
 
 	public Main() {
 		super();
-		
+
 //		Log.v("Main", "Main");
 	}
 
-	static public void initialize(Activity activity)
-	{
+	static public void initialize(Activity activity) {
 		Main.context = activity;
 		haveGUI = true;
 
-		if(main == null) 
-		{
+		if (main == null) {
 			lastLocationTimer.start();
 //			Log.v("Main", "initialize");
 			loadState(context);
 			updateFlashlight();
-			
+
 			Intent serviceIntent = new Intent(activity, Main.class);
 			activity.startService(serviceIntent);
-			
+
 		}
-		
+
 	}
 
-// recover where we were when shut down
-	static void loadState(Context context)
-	{
-		if(settings == null)
-		{
+	// recover where we were when shut down
+	static void loadState(Context context) {
+		if (settings == null) {
 			settings = new Settings();
 			Settings.load(context);
 			Settings.loadState(context);
@@ -155,17 +150,14 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 			FileInputStream fd = null;
 			try {
 				fd = context.openFileInput("logTemp");
-				
-			
-				byte [] buffer = new byte[LOG_PACKET_SIZE * 50];
+
+
+				byte[] buffer = new byte[LOG_PACKET_SIZE * 50];
 				boolean done = false;
-				while(!done)
-				{
+				while (!done) {
 					int bytes = fd.read(buffer, 0, buffer.length);
-					for(int i = 0; i < bytes; i += LOG_PACKET_SIZE)
-					{
-						if(bytes - i >= LOG_PACKET_SIZE)
-						{
+					for (int i = 0; i < bytes; i += LOG_PACKET_SIZE) {
+						if (bytes - i >= LOG_PACKET_SIZE) {
 							int offset = i;
 							RoutePoint point = new RoutePoint();
 							point.latitude = Settings.read_float32(buffer, offset);
@@ -184,32 +176,29 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 
 						}
 					}
-					
-					if(bytes < LOG_PACKET_SIZE) done = true;
+
+					if (bytes < LOG_PACKET_SIZE) done = true;
 				}
 
 				Settings.prevFineXYZ = null;
 				Settings.prevCoarseXYZ = null;
 
-				if(Settings.log.size() > 0)
-				{
+				if (Settings.log.size() > 0) {
 					RoutePoint lastPoint = Settings.log.get(Settings.log.size() - 1);
 					Settings.prevFineXYZ = llh_to_xyz(
-							lastPoint.latitude, 
-							lastPoint.longitude, 
+							lastPoint.latitude,
+							lastPoint.longitude,
 							lastPoint.altitude);
-					
+
 // find the last change in distance
-					for(int i = Settings.log.size() - 2; i >= 0; i--)
-					{
+					for (int i = Settings.log.size() - 2; i >= 0; i--) {
 						RoutePoint point2 = Settings.log.get(i);
-						if(lastPoint.distance != point2.distance ||
-							i == 0)
-						{
+						if (lastPoint.distance != point2.distance ||
+								i == 0) {
 							RoutePoint point3 = Settings.log.get(i + 1);
 							Settings.prevCoarseXYZ = llh_to_xyz(
-									point3.latitude, 
-									point3.longitude, 
+									point3.latitude,
+									point3.longitude,
 									point3.altitude);
 							break;
 						}
@@ -220,11 +209,11 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-			
-			
+
+
 		}
 	}
-	
+
 //	boolean needGPS()
 //	{
 //		return (Settings.keepAlive ||
@@ -239,17 +228,14 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 	}
 
 	@Override
-	public int onStartCommand(Intent intent, int flags, int startId) 
-	{
-	//	Log.v("Main", "onStartCommand main=" + main + " Settings.enableService=" + Settings.enableService);
+	public int onStartCommand(Intent intent, int flags, int startId) {
+		//	Log.v("Main", "onStartCommand main=" + main + " Settings.enableService=" + Settings.enableService);
 
-		if(Settings.needRestart)
-		{
+		if (Settings.needRestart) {
 			Settings.needRestart = false;
 		}
-		
-		if(main == null)
-		{
+
+		if (main == null) {
 //			Log.v("Main", "onStartCommand main=" + main + "keepAlive=" + keepAlive);
 
 			haveGUI = false;
@@ -257,19 +243,17 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 			context = getApplicationContext();
 			alarmManager = (AlarmManager) context.getSystemService(
 					Activity.ALARM_SERVICE);
-	 		tts = new TextToSpeech(context, this);
+			tts = new TextToSpeech(context, this);
 
 			loadState(context);
 			updateFlashlight();
 		}
 
-		if(Settings.enableService)
-		{
+		if (Settings.enableService) {
 			setAlarm();
 //			Log.v("Main", "onStartCommand locationClient=" + locationClient);
 
-			if(webServer == null)
-			{
+			if (webServer == null) {
 				webServer = new WebServer();
 				webServer.start();
 			}
@@ -280,22 +264,18 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 			long maxAge = -1;
 			int maxIndex = -1;
 			int totalThreads = 0;
-			if(!Settings.externalGPS)
-			{
+			if (!Settings.externalGPS) {
 				// Find most recent locationThread
-				for(int i = 0; i < POOL_SIZE; i++)
-				{
-					if(locationPool[i] != null) {
+				for (int i = 0; i < POOL_SIZE; i++) {
+					if (locationPool[i] != null) {
 						totalThreads++;
 						long age = locationPool[i].timer.getTime();
-						if(age < minAge)
-						{
+						if (age < minAge) {
 							minAge = age;
 							minIndex = i;
 						}
 
-						if(age > maxAge)
-						{
+						if (age > maxAge) {
 							maxAge = age;
 							maxIndex = i;
 						}
@@ -304,28 +284,21 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 
 
 				// time to create another locationThread
-				if(minAge > MAX_AGE)
-				{
+				if (minAge > MAX_AGE) {
 					int index = -1;
-					if(totalThreads < POOL_SIZE)
-					{
-						for(int i = 0; i < POOL_SIZE; i++)
-						{
-							if(locationPool[i] == null)
-							{
+					if (totalThreads < POOL_SIZE) {
+						for (int i = 0; i < POOL_SIZE; i++) {
+							if (locationPool[i] == null) {
 								index = i;
 								break;
 							}
 						}
-					}
-					else
-					{
+					} else {
 						// replace oldest one
 						index = maxIndex;
 					}
 
-					if(locationPool[index] != null)
-					{
+					if (locationPool[index] != null) {
 						locationPool[index].stop();
 					}
 
@@ -333,41 +306,29 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 					locationPool[index] = new LocationThread();
 					haveLocationPool = true;
 				}
-			}
-			else
-			if(externalClient == null)
-			{
+			} else if (externalClient == null) {
 				externalClient = new ExternalClient();
 				externalClient.start();
 			}
 
 
-
-
-
 			Location location = null;
-			if(!Settings.externalGPS)
-			{
+			if (!Settings.externalGPS) {
 				// Get location from most recent locationThread
-				if(minIndex < 0)
-				{
+				if (minIndex < 0) {
 					minIndex = POOL_SIZE - 1;
 				}
 
-				for(int i = 0; i < POOL_SIZE; i++)
-				{
-					if(locationPool[minIndex] != null)
-					{
+				for (int i = 0; i < POOL_SIZE; i++) {
+					if (locationPool[minIndex] != null) {
 						location = LocationServices.FusedLocationApi.getLastLocation(
 								locationPool[minIndex].mGoogleApiClient);
-						if(location != null)
-						{
+						if (location != null) {
 							break;
 						}
 
 						minIndex--;
-						if(minIndex < 0)
-						{
+						if (minIndex < 0) {
 							minIndex = POOL_SIZE - 1;
 						}
 					}
@@ -381,44 +342,34 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 				//		location = new Location(this.location);
 				//	}
 				//}
-			}
-			else
-			if(Settings.externalGPS &&
-				externalClient != null)
-			{
+			} else if (Settings.externalGPS &&
+					externalClient != null) {
 				location = externalClient.getLastLocation();
 			}
 
 
-
 			// new location hasn't been received since restarting
 			locationTimeout = GPS_TIMEOUT1;
-			if(totalLocations > 0)
-			{
+			if (totalLocations > 0) {
 				// new location has been received since restarting
 				locationTimeout = GPS_TIMEOUT2;
 			}
 
-			Log.v("Main", " Timer=" + lastLocationTimer.getTime() +
-					" timeout=" + locationTimeout +
-					" newtime=" + ((location == null ? -1 : location.getTime()) % 60000) +
-					" prevtime=" + (locationTime % 60000) +
-					" location=" + (location != null));
+//			Log.i("Main", " Timer=" + lastLocationTimer.getTime() +
+//					" timeout=" + locationTimeout +
+//					" newtime=" + ((location == null ? -1 : location.getTime()) % 60000) +
+//					" prevtime=" + (locationTime % 60000) +
+//					" location=" + (location != null));
 
 
-			if(location != null)
-			{
-				if(location.getTime() == locationTime)
-				{
+			if (location != null) {
+				if (location.getTime() == locationTime) {
 					// if the location time hasn't changed in too long, restart
-					if(lastLocationTimer.getTime() > locationTimeout)
-					{
+					if (lastLocationTimer.getTime() > locationTimeout) {
 						haveLocation = false;
 						restartGPS();
 					}
-				}
-				else
-				{
+				} else {
 					// the location time has changed
 					totalLocations++;
 					lastLocationTimer.reset();
@@ -429,68 +380,58 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 				locationTime = location.getTime();
 				locationAccuracy = location.getAccuracy();
 
-				if(!Settings.externalGPS) {
+				if (!Settings.externalGPS) {
 					synchronized (this) {
 						this.location = location;
 					}
 				}
-			}
-			else
-			{
+			} else {
 				haveLocation = false;
 				// if the location time hasn't changed in too long, restart
-				if(lastLocationTimer.getTime() > locationTimeout)
-				{
+				if (lastLocationTimer.getTime() > locationTimeout) {
 					restartGPS();
 				}
 			}
 
 
+			if (location != null &&
+					location.getAccuracy() < Settings.MIN_ACCURACY) {
 
-			if(location != null && 
-				location.getAccuracy() < Settings.MIN_ACCURACY)
-			{
-
-				if(Settings.fakeGPS)
-				{
+				if (Settings.fakeGPS) {
 					location.setLatitude(Settings.fakeLatitude);
 					location.setLongitude(Settings.fakeLongitude);
 					location.setAltitude(Settings.fakeAltitude);
 					Settings.fakeLatitude += Settings.latitudeStep;
-					
+
 					double step = Settings.slowStep;
-					if(Settings.intervalState == Settings.WORK &&
-							Settings.intervalActive)
-					{
-						if(Settings.fakeCounter < 10)
+					if (Settings.intervalState == Settings.WORK &&
+							Settings.intervalActive) {
+						if (Settings.fakeCounter < 10)
 							Settings.fakeCounter++;
-						if(Settings.fakeCounter >= 10)
+						if (Settings.fakeCounter >= 10)
 							step = Settings.fastStep;
-					}
-					else
-					{
-						if(Settings.fakeCounter > 0)
+					} else {
+						if (Settings.fakeCounter > 0)
 							Settings.fakeCounter--;
-						if(Settings.fakeCounter > 0)
+						if (Settings.fakeCounter > 0)
 							step = Settings.fastStep;
 					}
-					
-					
+
+
 //					Log.v("onStartCommand", "step=" + step);
-					
-					
+
+
 					Settings.fakeLongitude += step;
 					Settings.fakeAltitude += Settings.altitudeStep;
-					
+
 				}
-				
-				if(Settings.recordRoute)
-				{
+
+				if (Settings.recordRoute) {
 //Log.v("Main", "onStartCommand location=" + location);
 
-                    updateLog(location);
+					updateLog(location);
 				}
-				
+
 			}
 
 //            int maxSatellites = status.getMaxSatellites();
@@ -503,26 +444,19 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 //                it.next();
 //                count++;
 //            }
-            
-			if(Settings.intervalActive)
-			{
+
+			if (Settings.intervalActive) {
 
 				updateInterval(location);
 			}
-			
-			if(Settings.needPace) updatePace();
+
+			if (Settings.needPace) updatePace();
 //Log.v("Main", "run Settings.intervalActive=" + Settings.intervalActive);
-		
-		
-		
-		}
-		else
-		if(haveLocationPool == true)
-		{
-			for(int i = 0; i < POOL_SIZE; i++)
-			{
-				if(locationPool[i] != null)
-				{
+
+
+		} else if (haveLocationPool == true) {
+			for (int i = 0; i < POOL_SIZE; i++) {
+				if (locationPool[i] != null) {
 					locationPool[i].stop();
 					locationPool[i] = null;
 				}
@@ -533,32 +467,27 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 			Log.v("Main", "onStartCommand stopped GPS");
 		}
 
-		if((prevTempo != Settings.beatsPerMinute ||
-			prevSound != Settings.sound) &&
-				metronome != null)
-		{
+		if ((prevTempo != Settings.beatsPerMinute ||
+				prevSound != Settings.sound) &&
+				metronome != null) {
 			metronome.stop2();
 			metronome = null;
 		}
 
-		if(Settings.metronome && metronome == null)
-		{
+		if (Settings.metronome && metronome == null) {
 			metronome = new Metronome();
 			metronome.start();
 			prevTempo = Settings.beatsPerMinute;
 			prevSound = Settings.sound;
-		}
-		else
-		if(!Settings.metronome && metronome != null)
-		{
+		} else if (!Settings.metronome && metronome != null) {
 			metronome.stop2();
 			metronome = null;
 		}
-		
-		
+
+
 		Settings.saveState(context);
 
-	
+
 //        Log.v("Main", "run 2 keepAlive=" + keepAlive);
 
 		return 0;
@@ -566,12 +495,10 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 	}
 
 
-	void restartGPS()
-	{
+	void restartGPS() {
 		// stop all the location objects
-		for(int i = 0; i < POOL_SIZE; i++)
-		{
-			if(locationPool[i] != null) {
+		for (int i = 0; i < POOL_SIZE; i++) {
+			if (locationPool[i] != null) {
 				locationPool[i].stop();
 				locationPool[i] = null;
 			}
@@ -583,12 +510,9 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 		totalLocations = 0;
 	}
 
-	public static void updateFlashlight()
-	{
-		if(!flashlightOn && Settings.flashlight)
-		{
-			if (cam == null)
-			{
+	public static void updateFlashlight() {
+		if (!flashlightOn && Settings.flashlight) {
+			if (cam == null) {
 				cam = Camera.open();
 			}
 
@@ -689,11 +613,9 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 		}
 
 
-		if(flashlightOn && !Settings.flashlight)
-		{
+		if (flashlightOn && !Settings.flashlight) {
 
-			if (cam == null)
-			{
+			if (cam == null) {
 				cam = Camera.open();
 			}
 
@@ -714,16 +636,32 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 
 	}
 
-	void setAlarm()
-	{
+	void setAlarm() {
 		Intent i = new Intent(this, Main.class);
 		PendingIntent pi = PendingIntent.getService(this, 0, i, 0);
 		alarmManager.cancel(pi);
 		alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP,
-	        SystemClock.elapsedRealtime() + Settings.DT, 
-	        pi);
-		
+				SystemClock.elapsedRealtime() + Settings.DT,
+				pi);
+
 	}
+
+
+	// start the recording if it isn't already going
+	static void startRecording()
+	{
+
+
+		if(!Settings.recordRoute)
+
+		{
+			Settings.recordRoute = true;
+			Main.startLog();
+			Main.sayText("Recording started");
+		}
+
+	}
+
 
 	static void toggleRecording()
 	{
@@ -749,6 +687,22 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 		Settings.save(Main.context);
 		Settings.saveState(Main.context);
 	}
+
+	static void resetIntervals()
+	{
+		Settings.db.getWritableDatabase().delete(IntervalDB.TABLE_NAME,
+				null,
+				null);
+
+		Settings.intervalActive = false;
+		Settings.intervalStart = -1;
+		Settings.intervalTimer.reset();
+		Settings.intervalState = Settings.WORK;
+		Settings.saveState(Main.context);
+		//Main.sayText("Reset");
+	}
+
+
 
 	static double getIntervalDistance()
 	{
@@ -853,46 +807,99 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 		long time2 = Settings.log.get(index).time;
 		for(int i = index - 1; i >= 0; i--)
 		{
-			double distance1 = Settings.log.get(i).distance;
-			double distance = distance2 - distance1;
-			if(distance >= Settings.intervalWork)
+			if(Settings.workUnits == Settings.SECONDS)
 			{
-				long time1 = Settings.log.get(i).time;
+				double time1 = Settings.log.get(i).time;
 				double duration = time2 - time1;
-				double pace = duration / distance;
-				
-//				Log.v("updatePace", " distance=" + distance +
-//						" duration=" + duration +
-//						" pace=" + pace);
-// got a new lower pace
-				if(pace < Settings.peakPace)
+				if(duration >= Settings.intervalWorkTime)
 				{
-					Settings.peakDuration = duration;
-					Settings.peakIndex = index;
-					Settings.peakPace = pace;
-				}
-				else
-				{
-					time1 = Settings.log.get(Settings.peakIndex).time;
-// no lower pace for the last 10 seconds
-					if(time2 - time1 > Settings.PACE_LAG)
+					double distance1 = Settings.log.get(i).distance;
+					double distance = distance2 - distance1;
+					double pace = 0;
+					
+					if(distance > 0)
 					{
-// pace in seconds per mile
-						pace = Main.miToM(Settings.peakPace);
-						Settings.db.updateInterval(Settings.peakDuration, 
-								Settings.peakPace,
-								distance);
-						// Make GUI update
-						Settings.intervalDBChanged = true;
-						sayText(new Formatter().format("%d seconds elapsed.  %d minutes %d seconds per mile.",
-								(int)Settings.peakDuration,
-								(int)(pace / 60),
-								(int)(pace % 60)).toString());
-						Settings.needPace = false;
+						pace = duration / distance;
 					}
-				}
 
-				break;
+// got a new lower pace
+					if(pace < Settings.peakPace)
+					{
+						Settings.peakDuration = duration;
+						Settings.peakIndex = index;
+						Settings.peakPace = pace;
+					}
+					else
+					{
+						time1 = Settings.log.get(Settings.peakIndex).time;
+// no lower pace for last 10 seconds
+						if(time2 - time1 > Settings.PACE_LAG)
+						{
+// seconds per mile
+							pace = Main.miToM(Settings.peakPace);
+							Settings.db.updateInterval(Settings.peakDuration, 
+									Settings.peakPace,
+									distance);
+// Make GUI update
+							Settings.intervalDBChanged = true;
+							sayText(new Formatter().format("Total distance %.2f miles.  Split pace %d minutes %d seconds per mile.",
+									Main.mToMi(distance),
+									(int)(pace / 60),
+									(int)(pace % 60)).toString());
+							Settings.needPace = false;
+						}
+					}
+					break;
+
+				}
+			}
+			else
+			{
+				double distance1 = Settings.log.get(i).distance;
+				double distance = distance2 - distance1;
+				if(distance >= Settings.intervalWork)
+				{
+					long time1 = Settings.log.get(i).time;
+					double duration = time2 - time1;
+					double pace = 0;
+					if(distance > 0)
+					{
+						pace = duration / distance;
+					}
+
+	//				Log.v("updatePace", " distance=" + distance +
+	//						" duration=" + duration +
+	//						" pace=" + pace);
+	// got a new lower pace
+					if(pace < Settings.peakPace)
+					{
+						Settings.peakDuration = duration;
+						Settings.peakIndex = index;
+						Settings.peakPace = pace;
+					}
+					else
+					{
+						time1 = Settings.log.get(Settings.peakIndex).time;
+	// no lower pace for the last 10 seconds
+						if(time2 - time1 > Settings.PACE_LAG)
+						{
+	// pace in seconds per mile
+							pace = Main.miToM(Settings.peakPace);
+							Settings.db.updateInterval(Settings.peakDuration, 
+									Settings.peakPace,
+									distance);
+// Make GUI update
+							Settings.intervalDBChanged = true;
+							sayText(new Formatter().format("%d seconds elapsed.  %d minutes %d seconds per mile.",
+									(int)Settings.peakDuration,
+									(int)(pace / 60),
+									(int)(pace % 60)).toString());
+							Settings.needPace = false;
+						}
+					}
+
+					break;
+				}
 			}
 		}
 		
@@ -947,7 +954,6 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 			else
 			{
 // call .5 miles
-// TODO: versions for meters, seconds
 				switch(Settings.workUnits)
 				{
 				case Settings.MILES:
@@ -980,7 +986,7 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 						distance >= nextUpdate)
 					{
 						Settings.prevUpdate = nextUpdate;
-						sayText(new Formatter().format("%d", distance).toString());
+						sayText(new Formatter().format("%d", (int)distance).toString());
 					}
 					break;
 				}
@@ -1216,7 +1222,7 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
         			
         		}
 
-        		
+        		Main.resetIntervals();
 //        		refresh();
 
             }
@@ -1313,18 +1319,21 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
     {
     	switch (item.getItemId()) 
     	{
-        case R.id.menu_settings:
-        	activity.startActivity(new Intent(activity, SettingsWin.class));
-        	return true;
-        case R.id.menu_interval_settings:
-        	activity.startActivity(new Intent(activity, IntervalSettings.class));
-        	return true;
+        case R.id.menu_settings: {
+			Intent i = new Intent(activity, SettingsWin.class);
+			//i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY);
+			activity.startActivity(i);
+			return true;
+		}
 //        case R.id.menu_map:
 //        	activity.startActivity(new Intent(activity, Map.class));
 //        	return true;
-        case R.id.menu_interval:
-        	activity.startActivity(new Intent(activity, IntervalTraining.class));
-        	return true;
+        case R.id.menu_interval: {
+			Intent i = new Intent(activity, IntervalTraining.class);
+			//i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY);
+			activity.startActivity(i);
+			return true;
+		}
     	case R.id.menu_clearlog:
     		clearLog(activity);
     		break;
@@ -1363,13 +1372,17 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 			Log.v("IntervalTraining", "onClick db size=" + 
 					Settings.db.totalIntervals() + " timer=" +
 					Settings.intervalTimer.getTime());
+			// start recording log
+			startRecording();
+
 			if(Settings.intervalState == Settings.COUNTDOWN ||
 					Settings.db.totalIntervals() == 0 &&
 					Settings.intervalTimer.getTime() < 1000 &&
 					Main.getIntervalDistance() < 0.01)
 			{
 	//begin 1st workout
-	    		Log.v("IntervalTraining", "onClick COUNTDOWN");
+
+	    		Log.i("IntervalTraining", "onClick COUNTDOWN");
 				Settings.intervalState = Settings.COUNTDOWN;
 				Settings.intervalCountdown = 10;
 			}
@@ -2000,7 +2013,11 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 				FileSelect.selectedFile = filename;
 			}
 		}
-		Main.context.startActivity( new Intent(Main.context, FileSelect.class));
+
+
+		Intent i = new Intent(Main.context, FileSelect.class);
+		i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY | Intent.FLAG_ACTIVITY_NEW_TASK);
+		Main.context.startActivity(i);
 	}
 
 	static void saveRoute(String path) 
@@ -2013,9 +2030,9 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 
 
 	static void saveLog(String path) {
-		sayText("Saving log");
+		sayText("Saving workout");
     	saveRoute(path, Settings.log);
-    	sayText("log saved");
+    	sayText("workout saved");
 	}
     
 	public static void startLog() 

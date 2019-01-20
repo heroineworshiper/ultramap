@@ -42,7 +42,7 @@ public class Settings {
 		zoom = file.getFloat("zoom", (float)zoom);
 		enableService = file.getBoolean("enableService", enableService);
 		externalGPS = file.getBoolean("externalGPS", externalGPS);
-		voiceFeedback = file.getBoolean("voiceFeedback", voiceFeedback);
+//		voiceFeedback = file.getBoolean("voiceFeedback", voiceFeedback);
 		currentRoute = file.getString("currentRoute", currentRoute);
 //		compassPointer = file.getBoolean("compassPointer", compassPointer);
 		followPosition = file.getBoolean("followPosition", followPosition);
@@ -55,6 +55,8 @@ public class Settings {
 		workUnits = file.getInt("workUnits", workUnits);
 		sound = file.getInt("sound", sound);
 		flashlight = file.getBoolean("flashlight", flashlight);
+		cutoffTime = file.getInt("cutoffTime", cutoffTime);
+		cutoffDistance = file.getInt("cutoffDistance", cutoffDistance);
 	}
 	
 	
@@ -67,7 +69,7 @@ public class Settings {
 		file.putBoolean("metronome",  metronome);
 		file.putBoolean("enableService",  enableService);
 		file.putBoolean("externalGPS",  externalGPS);
-		file.putBoolean("voiceFeedback",  voiceFeedback);
+//		file.putBoolean("voiceFeedback",  voiceFeedback);
 		file.putFloat("bearing", (float)bearing);
 		file.putFloat("latitude", (float)latitude);
 		file.putFloat("longitude", (float)longitude);
@@ -84,6 +86,8 @@ public class Settings {
 		file.putInt("workUnits", workUnits);
 		file.putInt("sound", sound);
 		file.putBoolean("flashlight", flashlight);
+		file.putInt("cutoffTime", (int)cutoffTime);
+		file.putInt("cutoffDistance", (int)cutoffDistance);
 
 		file.commit();
 		
@@ -302,11 +306,11 @@ public class Settings {
 	static double fakeLongitude = -122.36;
 	static double fakeAltitude = 0;
 // fastStep is used when intervals are active
-	static double fastStep = 0.00005;
+	static double fastStep = 0.00004;
 // for testing intervals, the slowStep is significantly slower than
 // the fast step
 //	static double slowStep = 0.00002;
-	static double slowStep = 0.00004;
+	static double slowStep = 0.00003;
 	static double latitudeStep = 0.000;
 	static double altitudeStep = 0;
 	static int fakeCounter = 0;
@@ -323,6 +327,12 @@ public class Settings {
 	static boolean compassPointer = true;
 	static boolean followPosition = true;
 	static boolean voiceFeedback = true;
+
+// seconds
+	static int cutoffTime = 0;
+// meters
+	static int cutoffDistance = 0;
+	
 // last voice readout
 	static double voicePosition = 0.0;
 // distance between voice positions, in meters
@@ -354,12 +364,14 @@ public class Settings {
 	static String BLUETOOTH_ID = "gps_bluetooth";
 //	static File dir = new File(Environment.getExternalStorageDirectory() + "//ultramap//");
 //	static File dir = new File("//storage//external_SD//ultramap//");
-	static File dir = new File("//storage//sdcard0//ultramap//");
-	static File camDir = new File("//storage//external_SD//DCIM//Camera//");
-//	static File camDir = new File("//storage//sdcard0//DCIM//Camera//");
+	static File dir = new File("//sdcard//ultramap//");
+//	static File camDir = new File("//storage//external_SD//DCIM//Camera//");
+//	static File camDir = new File("//storage//sdcard1//DCIM//100KYCRA//");
+	static File camDir = new File("//sdcard//DCIM//Camera//");
+//	static File camDir = new File("//sdcard//DCIM//OpenCamera//");
 // web server parameters
 //	static String wwwhome = "/storage/external_SD/html/";
-	static String wwwhome = "/storage/sdcard0/html/";
+	static String wwwhome = "//sdcard//ultramap//html//";
 
 	// web server parameters
 	static int port = 8080;
@@ -426,3 +438,9 @@ public class Settings {
 	static boolean needRestart = true;
 	static boolean flashlight = false;
 }
+
+
+
+
+
+

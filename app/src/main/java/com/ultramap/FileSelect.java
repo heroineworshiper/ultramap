@@ -39,10 +39,12 @@ public class FileSelect extends WindowBase {
             Log.v("FileSelect", "onCreate " + e.toString());
         }
         mFileList = Settings.dir.list();
-        Arrays.sort(mFileList);
-        
+        if(mFileList != null)
+        {
+            Arrays.sort(mFileList);
+
         // http://www.vogella.com/articles/AndroidListView/article.html
-        ListView listView = (ListView) findViewById(R.id.listView1);
+            ListView listView = (ListView) findViewById(R.id.listView1);
 
 //        Log.v("FileSelect", "onCreate 2 " + 
 //        		this + " " + 
@@ -50,30 +52,31 @@ public class FileSelect extends WindowBase {
 //        		Environment.getDataDirectory() + " " +
 //        		mPath + " " +
 //        		mFileList);
-        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
-        		  android.R.layout.simple_list_item_1, 
-        		  android.R.id.text1, 
-        		  mFileList);
-        listView.setAdapter(adapter); 
-        
-        listView.setOnItemClickListener(new ListView.OnItemClickListener() 
-        {
-        	public void onItemClick(AdapterView<?> parent, 
-        		View view,
-        	    int position, 
-        	    long id) 
-        	{
+            ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
+                      android.R.layout.simple_list_item_1,
+                      android.R.id.text1,
+                      mFileList);
+            listView.setAdapter(adapter);
+            listView.setOnItemClickListener(new ListView.OnItemClickListener()
+            {
+                public void onItemClick(AdapterView<?> parent,
+                                        View view,
+                                        int position,
+                                        long id)
+                {
 //        	    Log.v("FileSelect", "onItemClick " + position);
-        	    String string = mFileList[position];
-        	    TextView title = (TextView)findViewById(R.id.file_text);
-        	    title.setText(string);
-        	}
+                    String string = mFileList[position];
+                    TextView title = (TextView)findViewById(R.id.file_text);
+                    title.setText(string);
+                }
+            });
+
+        }
 
 
-        });
-        
+
         Log.v("FileSelect", "onCreate selectedFile=" + FileSelect.selectedFile);
-        
+
         if(FileSelect.selectedFile != null)
         {
         	TextView title = (TextView)findViewById(R.id.file_text);
@@ -105,9 +108,9 @@ public class FileSelect extends WindowBase {
         }
         
         
-
-        startActivity( new Intent(this, nextWindow));
-    	return;
+        Intent i = new Intent(this, nextWindow);
+        i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY);
+        startActivity(i);
     }
     
 

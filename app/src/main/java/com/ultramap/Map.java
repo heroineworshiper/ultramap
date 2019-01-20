@@ -219,10 +219,10 @@ public class Map extends WindowBase implements OnMapClickListener, OnCameraChang
 
     		break;
 
-    	case R.id.menu_savelog:
-			FileSelect.nextWindow = Map.class;
-			Main.saveRoute(false);
-    		break;
+//    	case R.id.menu_savelog:
+//			FileSelect.nextWindow = Map.class;
+//			Main.saveRoute(false);
+//    		break;
 
 //    	case R.id.menu_savegpx:
 //    		saveRoute(true);

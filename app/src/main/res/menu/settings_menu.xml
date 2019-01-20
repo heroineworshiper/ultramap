@@ -3,4 +3,5 @@
     <item android:id="@+id/settings_saveroute" android:title="Save route" />
     <item android:id="@+id/menu_clearlog" android:title="Clear log" />
     <item android:id="@+id/menu_clearroute" android:title="Clear route" />
+    <item android:id="@+id/menu_interval" android:title="Interval training" />
 </menu>

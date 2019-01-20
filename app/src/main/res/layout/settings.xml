@@ -48,13 +48,13 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Route Distance:"
-        android:textAppearance="?android:attr/textAppearanceLarge" />
+        android:textAppearance="?android:attr/textAppearanceMedium" />
      <TextView
         android:id="@+id/distance"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="0"
-        android:textAppearance="?android:attr/textAppearanceLarge" />
+        android:textAppearance="?android:attr/textAppearanceMedium" />
     </TableRow>
 
 
@@ -68,13 +68,13 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Route Points:"
-        android:textAppearance="?android:attr/textAppearanceLarge" />
+        android:textAppearance="?android:attr/textAppearanceMedium" />
      <TextView
         android:id="@+id/points"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="0"
-        android:textAppearance="?android:attr/textAppearanceLarge" />
+        android:textAppearance="?android:attr/textAppearanceMedium" />
     </TableRow>
 
 
@@ -86,13 +86,13 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Log Distance:"
-        android:textAppearance="?android:attr/textAppearanceLarge" />
+        android:textAppearance="?android:attr/textAppearanceMedium" />
      <TextView
         android:id="@+id/log_distance"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="0"
-        android:textAppearance="?android:attr/textAppearanceLarge" />
+        android:textAppearance="?android:attr/textAppearanceMedium" />
     </TableRow>
 
 
@@ -156,6 +156,7 @@
         android:visibility="gone" />
 
     <CheckBox
+        android:visibility="gone"
         android:id="@+id/voice_feedback"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -167,6 +168,13 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Metronome"
+        android:onClick="onClick" />
+
+    <CheckBox
+        android:id="@+id/flashlight"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Flashlight"
         android:onClick="onClick" />
 
 <LinearLayout android:layout_height="match_parent"
@@ -184,8 +192,7 @@
         android:inputType="number"
         android:gravity="center"
         android:focusable="false"
-        android:text="60"
-        android:editable="true"/>
+        android:text="60"/>
     <Button android:id="@+id/tempo_plus"
             android:layout_width="50dp"
             android:layout_height="wrap_content"
@@ -206,36 +213,127 @@
         android:layout_height="wrap_content"
         android:text="Bluetooth status"
         android:textAppearance="?android:attr/textAppearanceLarge"
-        android:visibility="gone"
-        android:nestedScrollingEnabled="false"/>
+        android:visibility="gone"/>
     
     <TableLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content" 
         android:shrinkColumns="*"  
     	android:stretchColumns="*">
-   <TableRow
+
+
+
+
+
+
+   	<TableRow
+       android:layout_width="wrap_content"
+       android:layout_height="wrap_content" >
+        <LinearLayout
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:layout_width="0px"
+            android:layout_height="0px"/>
+        </TableRow>
+
+
+        <TableRow
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" >
+
+        <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Cutoff Time:"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+        <EditText
+            android:id="@+id/cutoff_time"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+    </TableRow>
+
+
+
+
+   	<TableRow
        android:layout_width="wrap_content"
        android:layout_height="wrap_content" >
         
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Map type:"
-        android:textAppearance="?android:attr/textAppearanceLarge" />
-    <Spinner
-        android:id="@+id/map_type_spinner"
+        android:text="Cutoff Distance (Miles):"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+    <EditText
+        android:id="@+id/cutoff_distance"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content" 
+		android:inputType="numberDecimal"
+        android:textAppearance="?android:attr/textAppearanceMedium"/>
     </TableRow>
 
 
+
+   	<TableRow
+       android:layout_width="wrap_content"
+       android:layout_height="wrap_content" >
+        
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Cutoff pace:"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+    <TextView
+        android:id="@+id/remaneing_pace"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" 
+		android:text=""
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+    </TableRow>
+
+
+
+
+   	<TableRow
+       android:layout_width="wrap_content"
+       android:layout_height="wrap_content" >
+        
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Total pace:"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+    <TextView
+        android:id="@+id/total_pace"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" 
+		android:text=""
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+    </TableRow>
+
+
+
+        <TableRow
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" >
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Map type:"
+                android:textAppearance="?android:attr/textAppearanceMedium" />
+            <Spinner
+                android:id="@+id/map_type_spinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+        </TableRow>
 
 
 
     </TableLayout>
 
         <TextView
+            android:visibility="gone"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:text="New Text"

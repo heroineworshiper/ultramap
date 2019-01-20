@@ -2,6 +2,7 @@ package com.ultramap;
 
 import java.util.Formatter;
 
+import com.google.android.gms.analytics.HitBuilders;
 import com.google.android.gms.maps.GoogleMap;
 import com.ultramap.R;
 
@@ -30,6 +31,8 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
 {
     final int MIN_TEMPO = 40;
     final int MAX_TEMPO = 90;
+    final int windowUpdateDownsample = 5;
+    int windowUpdateCounter = 0;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -78,13 +81,7 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
         title = (TextView) findViewById(R.id.points);
         title.setText(new Formatter().format("%d", Main.settings.route.size()).toString());
  
-        distance = Main.mToMi(Main.getDistance(Main.settings.log));
         
-        title = (TextView) findViewById(R.id.log_distance);
-        title.setText(new Formatter().format("%.2fmi (%d)", distance, Main.settings.log.size()).toString());
-        title = (TextView) findViewById(R.id.log_points);
-        title.setText(new Formatter().format("%d", Main.settings.log.size()).toString());
- 
         title = (TextView) findViewById(R.id.bluetooth_status);
         title.setText(Main.bluetoothStatus);
 
@@ -127,6 +124,106 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
         }
 
         updateButtonText();
+
+
+
+
+
+
+
+        number = (EditText)findViewById(R.id.cutoff_time);
+        number.setText(Integer.toString(Settings.cutoffTime / 3600) + "h" + 
+			Integer.toString(Settings.cutoffTime % 60) + "m");
+        number.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable e) {
+                Log.v("SettingsWin", "onEditorAction " + e.toString());
+
+                String input = e.toString();
+                String hString = new String();
+                String mString = new String();
+                int ptr = 0;
+                while(ptr < input.length() && input.charAt(ptr) != 'h')
+                {
+                    hString += input.charAt(ptr);
+                    ptr++;
+                }
+
+                while(ptr < input.length() && !Character.isDigit(input.charAt(ptr)) )
+                {
+                    ptr++;
+                }
+
+                while(ptr < input.length() && input.charAt(ptr) != 's')
+                {
+                    mString += input.charAt(ptr);
+                    ptr++;
+                }
+
+                int hours = 0;
+                int minutes = 0;
+
+                try {
+                    hours = Integer.parseInt(hString);
+                    minutes = Integer.parseInt(mString);
+                }catch(Exception x)
+                {
+                }
+
+
+                Log.i("SettingsWin", "hString=" + hString + " mString=" + mString);
+
+                Settings.cutoffTime = minutes * 60 + hours * 3600;
+                Settings.save(Main.context);
+
+                updateDistances();
+            }
+        });
+
+
+
+
+        number = (EditText)findViewById(R.id.cutoff_distance);
+
+        number.setText(new Formatter().format("%.2f", Main.mToMi(Settings.cutoffDistance)).toString());
+        number.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable e) {
+                Log.v("SettingsWin", "onEditorAction " + e.toString());
+                double newDistance = Float.parseFloat(e.toString());
+                Settings.cutoffDistance = (int)Main.miToM(newDistance);
+                Settings.save(Main.context);
+
+                updateDistances();
+            }
+
+        });
+
+
+
+		updateDistances();
+
+
 		
 		
 // A route was selected
@@ -176,6 +273,71 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
         }
     }
 
+
+	void updateDistances()
+	{
+		double recordedDistance = Main.mToMi(Main.getDistance(Main.settings.log));
+        TextView title = (TextView) findViewById(R.id.log_distance);
+        title.setText(new Formatter().format("%.2fmi (%d)", recordedDistance, Main.settings.log.size()).toString());
+        title = (TextView) findViewById(R.id.log_points);
+        title.setText(new Formatter().format("%d", Main.settings.log.size()).toString());
+
+//        Log.i("updateDistances", "cutoffTime=" + Settings.cutoffTime + " cutoffDistance=" + Settings.cutoffDistance);
+
+		RoutePoint point1 = null;
+		double distance = 0;
+		if(Settings.log.size() > 0)
+		{
+			point1 = Settings.log.get(Settings.log.size() - 1);
+			distance = point1.distance;
+		}
+		
+		String text = new String();
+        long duration = 0;
+
+        if(distance > 0 && point1 != null)
+		{
+			duration = point1.relativeTime;
+			double pace = duration / distance;
+			pace = Main.miToM(pace);
+			text = new Formatter().format("%dm%ds",
+				(int)(pace / 60),
+				(int)(pace % 60)).toString();
+		}
+		else
+		{
+			text = "Unknown";
+		}
+	
+		title = (TextView) findViewById(R.id.total_pace);
+		title.setText(text);
+		
+		double distanceLeft = Settings.cutoffDistance - distance;
+		if(distanceLeft > 0)
+		{
+			double timeLeft = Settings.cutoffTime - duration;
+			double pace = timeLeft / distanceLeft;
+			pace = Main.miToM(pace);
+			text = new Formatter().format("%dm%ds",
+				(int)(pace / 60),
+				(int)(pace % 60)).toString();
+		}
+		else
+		{
+			text = "Unknown";
+		}
+		
+		title = (TextView) findViewById(R.id.remaneing_pace);
+		title.setText(text);
+		
+		
+	}
+	
+	
+	
+	
+	
+
     void toggleRecording()
     {
         Main.toggleRecording();
@@ -192,14 +354,25 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
     {
         switch(item.getItemId())
         {
-            case R.id.settings_saveroute:
+            case R.id.menu_interval: {
+                Intent i = new Intent(this, IntervalTraining.class);
+                //i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY);
+                this.startActivity(i);
+                return true;
+            }
+
+            case R.id.settings_saveroute: {
                 Settings.saveGPX = false;
                 Settings.selectLoad = false;
                 Settings.selectSave = true;
                 Settings.selectSaveLog = false;
                 FileSelect.nextWindow = SettingsWin.class;
-                startActivity( new Intent(Main.context, FileSelect.class));
+
+                Intent i = new Intent(Main.context, FileSelect.class);
+                i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY);
+                startActivity(i);
                 break;
+            }
 
             case R.id.settings_savelog:
                 FileSelect.nextWindow = SettingsWin.class;
@@ -304,14 +477,16 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
 	public void updateGUI()
 	{
 		if(Main.main == null) return;
-		
-        double distance = Main.mToMi(Main.getDistance(Main.settings.log));
-        
-        TextView title = (TextView) findViewById(R.id.log_distance);
-        title.setText(new Formatter().format("%.2fmi (%d)", distance, Main.settings.log.size()).toString());
-        title = (TextView) findViewById(R.id.log_points);
-        title.setText(new Formatter().format("%d", Main.settings.log.size()).toString());
+        windowUpdateCounter++;
+        if(windowUpdateCounter < windowUpdateDownsample)
+        {
+            return;
+        }
+        windowUpdateCounter = 0;
 
+		updateDistances();
+		
+        TextView title;
         title = (TextView) findViewById(R.id.bluetooth_status);
         title.setText(Main.bluetoothStatus);
 
