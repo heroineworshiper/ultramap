@@ -19,3 +19,4 @@ TODO:
 Corrupted log when a recording is cleared but not stopped.
 Intervals shouldn't take the text entry until the next interval starts & before
 the next interval ends.
+Show the IP address of the web server.
