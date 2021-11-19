@@ -9,6 +9,11 @@ Auto installation is a work in progress.
 To install it, there must be an /sdcard/ultramap directory
 The html directory must be copied to /sdcard/ultramap/
 
+For android 11, go to settings -> apps -> ultramap -> location
+Enable location access ALL THE TIME.
+
+A more automated way of doing it is obsolete in 3 months.
+
 
 TODO:
 Corrupted log when a recording is cleared but not stopped.
