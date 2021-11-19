@@ -1,12 +1,12 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 19
-    buildToolsVersion "21.1.2"
+    compileSdkVersion 29
+    buildToolsVersion "29.0.2"
     defaultConfig {
         applicationId "com.ultramap"
-        minSdkVersion 19
-        targetSdkVersion 19
+        minSdkVersion 26
+        targetSdkVersion 29
     }
     buildTypes {
         release {
@@ -16,9 +16,15 @@ android {
     }
     productFlavors {
     }
+    useLibrary 'org.apache.http.legacy'
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
 }
 
 dependencies {
-    compile 'com.android.support:support-v4:19.0.0'
+    compile 'androidx.legacy:legacy-support-v4:1.0.0'
     compile 'com.google.android.gms:play-services:5.0.89'
+    compile 'org.jbundle.util.osgi.wrapped:org.jbundle.util.osgi.wrapped.org.apache.http.client:4.1.2'
 }

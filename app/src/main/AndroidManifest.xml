@@ -4,12 +4,13 @@
     android:versionName="1.0" >
 
     <uses-sdk
-        android:minSdkVersion="19"
-        android:targetSdkVersion="21" />
+        android:minSdkVersion="26"
+        android:targetSdkVersion="26" />
     <uses-permission android:name="android.permission.FLASHLIGHT"/>
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
@@ -27,33 +28,37 @@
          android:value="@integer/google_play_services_version"/>
         <meta-data
     		android:name="com.google.android.maps.v2.API_KEY"
-    		android:value="AIzaSyCPBB7TTpkE1tAY4PFFAQ9Zy7kgU5G26Jw"/>
+    		android:value="AIzaSyBfNNff_tGjOHlMMcBCPvh9yow8q0EbYzs"/>
 
 
 <!-- every new Eclipse installation needs a new key -->
 <!-- /usr/local/jdk1.7.0_07/bin/keytool -list -v -keystore ~/.android/debug.keystore -->
 <!-- password is android -->
 <!-- from the Google API console https://code.google.com/apis/console/ -->
-<!-- map key for heroine eclipse -->
-<!--    		android:value="AIzaSyDD5_kza2cLRDU59vXh-ROKzfjV4jdHa3I" -->
+
+        <!-- map key for heroine android-studio -->
+        <!-- AIzaSyBfNNff_tGjOHlMMcBCPvh9yow8q0EbYzs -->
+
+        <!-- map key for heroine eclipse -->
+        <!--    		android:value="AIzaSyDD5_kza2cLRDU59vXh-ROKzfjV4jdHa3I" -->
 
         <!-- map key for amazon eclipse -->
         <!--    		android:value="AIzaSyC6BGMLfFVeMpjJbjK9vFZIcJefnWMM0kc" -->
 
-        <!-- map key for mac2 eclipse -->
+        <!-- map key for mac2 eclipse/android-studio -->
         <!--    		android:value="AIzaSyCPBB7TTpkE1tAY4PFFAQ9Zy7kgU5G26Jw" -->
 
         <activity
             android:name=".SettingsWin"
             android:label="@string/title_activity_main" >
-        </activity>
-        <activity
-            android:name=".Map"
-            android:label="@string/title_activity_main" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+        <activity
+            android:name=".Map"
+            android:label="@string/title_activity_main" >
         </activity>
         <activity
             android:name=".FileSelect"

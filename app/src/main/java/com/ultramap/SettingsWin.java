@@ -227,25 +227,25 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
 		
 		
 // A route was selected
-        Log.v("Map", "onCreate FileSelect.success=" + FileSelect.success + 
-        		" FileSelect.selectedFile=" + FileSelect.selectedFile);
-        if(FileSelect.success &&
-        		FileSelect.selectedFile != null)
-        {
-        	if(Settings.selectSave)
-        	{
-        		Main.saveRoute(Settings.dir + "/" + FileSelect.selectedFile);
-        	}
-        	else
-        	if(Settings.selectSaveLog)
-        	{
-        		Main.saveLog(Settings.dir + "/" + FileSelect.selectedFile);
-        	}
-        }
-
-        Settings.selectLoad = false;
-        Settings.selectSave = false;
-        Settings.selectSaveLog = false;
+//        Log.v("Map", "onCreate FileSelect.success=" + FileSelect.success +
+//        		" FileSelect.selectedFile=" + FileSelect.selectedFile);
+//        if(FileSelect.success &&
+//        		FileSelect.selectedFile != null)
+//        {
+//        	if(Settings.selectSave)
+//        	{
+//        		Main.saveRoute(Settings.dir + "/" + FileSelect.selectedFile);
+//        	}
+//        	else
+//        	if(Settings.selectSaveLog)
+//        	{
+//        		Main.saveLog(Settings.dir + "/" + FileSelect.selectedFile);
+//        	}
+//        }
+//
+//        Settings.selectLoad = false;
+//        Settings.selectSave = false;
+//        Settings.selectSaveLog = false;
         
 //        Log.v("SettingsWin", "onCreate");
     }
@@ -277,6 +277,9 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
 	void updateDistances()
 	{
 		double recordedDistance = Main.mToMi(Main.getDistance(Main.settings.log));
+		String text = new String();
+        String text2 = new String();
+        
         TextView title = (TextView) findViewById(R.id.log_distance);
         title.setText(new Formatter().format("%.2fmi (%d)", recordedDistance, Main.settings.log.size()).toString());
         title = (TextView) findViewById(R.id.log_points);
@@ -284,34 +287,44 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
 
 //        Log.i("updateDistances", "cutoffTime=" + Settings.cutoffTime + " cutoffDistance=" + Settings.cutoffDistance);
 
+// compute elapsed time & elapsed pace
 		RoutePoint point1 = null;
 		double distance = 0;
+        long duration = 0;
 		if(Settings.log.size() > 0)
 		{
 			point1 = Settings.log.get(Settings.log.size() - 1);
 			distance = point1.distance;
+			duration = point1.relativeTime;
 		}
 		
-		String text = new String();
-        long duration = 0;
 
         if(distance > 0 && point1 != null)
 		{
-			duration = point1.relativeTime;
 			double pace = duration / distance;
 			pace = Main.miToM(pace);
 			text = new Formatter().format("%dm%ds",
 				(int)(pace / 60),
 				(int)(pace % 60)).toString();
+            text2 = new Formatter().format("%dh%dm%ds",
+                (int)(duration / 3600),
+                (int)(duration / 60) % 60,
+                (int)(duration % 60)).toString();
 		}
 		else
 		{
 			text = "Unknown";
+            text2 = "Unknown";
 		}
 	
-		title = (TextView) findViewById(R.id.total_pace);
+		title = (TextView) findViewById(R.id.pace);
 		title.setText(text);
-		
+
+		title = (TextView) findViewById(R.id.elapsed_time);
+		title.setText(text2);
+
+
+// remaneing pace
 		double distanceLeft = Settings.cutoffDistance - distance;
 		if(distanceLeft > 0)
 		{
@@ -329,7 +342,7 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
 		
 		title = (TextView) findViewById(R.id.remaneing_pace);
 		title.setText(text);
-		
+
 		
 	}
 	
@@ -354,30 +367,30 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
     {
         switch(item.getItemId())
         {
-            case R.id.menu_interval: {
-                Intent i = new Intent(this, IntervalTraining.class);
-                //i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY);
-                this.startActivity(i);
-                return true;
-            }
+//             case R.id.menu_interval: {
+//                 Intent i = new Intent(this, IntervalTraining.class);
+//                 //i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY);
+//                 this.startActivity(i);
+//                 return true;
+//             }
 
-            case R.id.settings_saveroute: {
-                Settings.saveGPX = false;
-                Settings.selectLoad = false;
-                Settings.selectSave = true;
-                Settings.selectSaveLog = false;
-                FileSelect.nextWindow = SettingsWin.class;
+//            case R.id.settings_saveroute: {
+//                Settings.saveGPX = false;
+//                Settings.selectLoad = false;
+//                Settings.selectSave = true;
+//                Settings.selectSaveLog = false;
+//                FileSelect.nextWindow = SettingsWin.class;
+//
+//                Intent i = new Intent(Main.context, FileSelect.class);
+//                i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY);
+//                startActivity(i);
+//                break;
+//            }
 
-                Intent i = new Intent(Main.context, FileSelect.class);
-                i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY);
-                startActivity(i);
-                break;
-            }
-
-            case R.id.settings_savelog:
-                FileSelect.nextWindow = SettingsWin.class;
-                Main.saveRoute(false);
-                break;
+//            case R.id.settings_savelog:
+//                FileSelect.nextWindow = SettingsWin.class;
+//                Main.saveLog();
+//                break;
 
 //    	case R.id.menu_savegpx:
 //    		saveRoute(true);
@@ -395,7 +408,6 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
                 return Main.onOptionsItemSelected(this, item);
         }
 
-        return false;
     }
     
     public void onClick(View view)

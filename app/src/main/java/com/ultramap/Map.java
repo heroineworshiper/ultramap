@@ -103,45 +103,14 @@ public class Map extends WindowBase implements OnMapClickListener, OnCameraChang
         if(greenMarker == null) greenMarker = BitmapDescriptorFactory.fromResource(R.raw.marker32x32green);
         if(headingBitmap == null) headingBitmap = BitmapDescriptorFactory.fromResource(R.raw.cursor);
 
-// A route was selected
-//        Log.v("Map", "onCreate Settings.currentRoute=" + Settings.currentRoute);
-        Log.v("Map", "onCreate FileSelect.success=" + FileSelect.success + 
-        		" FileSelect.selectedFile=" + FileSelect.selectedFile);
-        if(FileSelect.success &&
-        		FileSelect.selectedFile != null)
-        {
-        	if(Settings.selectLoad)
-        	{
-	        	loadRoute(Settings.dir + "/" + FileSelect.selectedFile);
-        	}
-        	else
-        	if(Settings.selectSave)
-        	{
-        		Main.saveRoute(Settings.dir + "/" + FileSelect.selectedFile);
-        	}
-        	else
-        	if(Settings.selectSaveLog)
-        	{
-        		Main.saveLog(Settings.dir + "/" + FileSelect.selectedFile);
-        	}
-        }
-        else
-        {
-// load default route
-        	if(Settings.currentRoute != null)
-        	{
-        		loadRoute(Settings.currentRoute);
-        	}
-        }
-        Settings.selectLoad = false;
-        Settings.selectSave = false;
-        Settings.selectSaveLog = false;
+        handleFileLoad();
+
         
 
-        if(Settings.route.size() > 0 && Settings.editRoute)
-       	{
-       		editRoute();
-       	}
+//         if(Settings.route.size() > 0 && Settings.editRoute)
+//        	{
+//        		editRoute();
+//        	}
     }
 
     
@@ -149,9 +118,54 @@ public class Map extends WindowBase implements OnMapClickListener, OnCameraChang
 		super.onResume();
         map.setMapType(Settings.mapType);
         updateButtonText();
-        refresh();
+        
+        if(!handleFileLoad())
+        {
+            refresh();
+        }
 	}
 
+// returns true if it loaded a file
+    public boolean handleFileLoad()
+    {
+        boolean result = false;
+// A route was selected
+       Log.v("Map", "handleFileLoad Settings.currentRoute=" + Settings.currentRoute);
+       Log.v("Map", "handleFileLoad FileSelect.success=" + FileSelect.success +
+       		" FileSelect.selectedFile=" + FileSelect.selectedFile);
+       if(FileSelect.success &&
+       		FileSelect.selectedFile != null)
+       {
+            if(Settings.selectLoad)
+            {
+                result = loadRoute(Settings.dir + "/" + FileSelect.selectedFile);
+            }
+//        	else
+//        	if(Settings.selectSave)
+//        	{
+//        		Main.saveRoute(Settings.dir + "/" + FileSelect.selectedFile);
+//        	}
+//        	else
+//        	if(Settings.selectSaveLog)
+//        	{
+//        		Main.saveLog(Settings.dir + "/" + FileSelect.selectedFile);
+//        	}
+       }
+       else
+       {
+// load default route
+       	   if(Settings.currentRoute != null)
+       	   {
+       		   result = loadRoute(Settings.currentRoute);
+       	   }
+       }
+       Settings.selectLoad = false;
+//       Settings.selectSave = false;
+//       Settings.selectSaveLog = false;
+
+
+        return result;
+    }
 
 	@Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -159,11 +173,11 @@ public class Map extends WindowBase implements OnMapClickListener, OnCameraChang
         getMenuInflater().inflate(R.menu.map_menu, menu);
         
         
-        if(Settings.editRoute)
-        {
-        	MenuItem item = menu.findItem(R.id.menu_editroute);
-        	item.setChecked(true);
-        }
+//        if(Settings.editRoute)
+//        {
+//        	MenuItem item = menu.findItem(R.id.menu_editroute);
+//        	item.setChecked(true);
+//        }
         
 //        if(Settings.recordRoute)
 //        {
@@ -196,28 +210,27 @@ public class Map extends WindowBase implements OnMapClickListener, OnCameraChang
     	switch(item.getItemId())
     	{
     	
-    	case R.id.menu_deletepoint:
-    		deletePoint();
-    		break;
-    	
-    	case R.id.menu_showroute:
-    		Settings.selectLoad = true;
-    		Settings.selectSave = false;
-    		Settings.selectSaveLog = false;
-    		FileSelect.nextWindow = Map.class;
-        	startActivity( new Intent(Main.context, FileSelect.class));
+//    	case R.id.menu_deletepoint:
+//    		deletePoint();
+//    		break;
+//
+//        case R.id.menu_showroute:
+//   	        Settings.selectLoad = true;
+//    		Settings.selectSave = false;
+//    		Settings.selectSaveLog = false;
+//   		    FileSelect.nextWindow = Map.class;
+//       	    startActivity( new Intent(Main.context, FileSelect.class));
+//   		    break;
 
-    		break;
-
-    	case R.id.menu_saveroute:
-    		Settings.saveGPX = false;
-    		Settings.selectLoad = false;
-    		Settings.selectSave = true;
-    		Settings.selectSaveLog = false;
-    		FileSelect.nextWindow = Map.class;
-        	startActivity( new Intent(Main.context, FileSelect.class));
-
-    		break;
+//    	case R.id.menu_saveroute:
+//    		Settings.saveGPX = false;
+//    		Settings.selectLoad = false;
+//    		Settings.selectSave = true;
+//    		Settings.selectSaveLog = false;
+//    		FileSelect.nextWindow = Map.class;
+//        	startActivity( new Intent(Main.context, FileSelect.class));
+//
+//    		break;
 
 //    	case R.id.menu_savelog:
 //			FileSelect.nextWindow = Map.class;
@@ -231,22 +244,20 @@ public class Map extends WindowBase implements OnMapClickListener, OnCameraChang
 //    	case R.id.menu_recordlog:
 //    		toggleRecording();
 //    		item.setChecked(Settings.recordRoute);
-//
 //    		break;
     		
     		
-    	case R.id.menu_editroute:
-    		Settings.editRoute = !Settings.editRoute;
-    		item.setChecked(Settings.editRoute);
-    		refresh();
-    		break;
-
+//    	case R.id.menu_editroute:
+//    		Settings.editRoute = !Settings.editRoute;
+//    		item.setChecked(Settings.editRoute);
+//    		refresh();
+//    		break;
+//
     		
     	default:
     		return Main.onOptionsItemSelected(this, item);
     	}
     	
-    	return false;
     }
 
 
@@ -537,8 +548,9 @@ public class Map extends WindowBase implements OnMapClickListener, OnCameraChang
 			refresh();
 		}
 	}
-	
-	void loadRoute(String file)
+
+// returns true if it loaded a route
+	public boolean loadRoute(String file)
 	{
     	Log.v("Map", "loadRoute " + file + " isDirectory=" + new File(file).isDirectory());
 
@@ -565,7 +577,7 @@ public class Map extends WindowBase implements OnMapClickListener, OnCameraChang
 
 			// XML parser can't detect a 0 length file, so it just hangs
 
-		if(!success) return;
+		if(!success) return false;
 
 		int eventType = xpp.END_DOCUMENT;
 		try {
@@ -661,7 +673,7 @@ public class Map extends WindowBase implements OnMapClickListener, OnCameraChang
 		} while (eventType != xpp.END_DOCUMENT);
 
 		refresh();
-
+        return true;
 	}
 
 // redraw route & markers

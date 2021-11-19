@@ -107,10 +107,13 @@ public class FileSelect extends WindowBase {
 	        break;
         }
         
-        
-        Intent i = new Intent(this, nextWindow);
-        i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY);
-        startActivity(i);
+// only used in Map, so go back
+        finish();
+
+
+//         Intent i = new Intent(this, nextWindow);
+//         i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY);
+//         startActivity(i);
     }
     
 

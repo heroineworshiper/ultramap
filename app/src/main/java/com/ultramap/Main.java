@@ -1,20 +1,14 @@
 package com.ultramap;
 
 import java.io.BufferedWriter;
-import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Formatter;
-import java.util.Iterator;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Locale;
-import java.util.TimeZone;
 import java.util.Vector;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -24,25 +18,20 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.model.LatLng;
-import com.ultramap.R;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.AlertDialog;
-import android.app.IntentService;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.app.AlertDialog.Builder;
-import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.ServiceConnection;
-import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
-import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 //import android.hardware.camera2.CameraAccessException;
 //import android.hardware.camera2.CameraCaptureSession;
@@ -51,22 +40,16 @@ import android.hardware.Camera;
 //import android.hardware.camera2.CameraManager;
 //import android.hardware.camera2.CameraMetadata;
 //import android.hardware.camera2.CaptureRequest;
-import android.location.GpsSatellite;
-import android.location.GpsStatus;
 import android.location.Location;
-import android.location.LocationListener;
-import android.location.LocationManager;
-import android.os.Binder;
-import android.os.Build;
-import android.os.Bundle;
 import android.os.IBinder;
 import android.os.SystemClock;
 import android.speech.tts.TextToSpeech;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import android.util.Log;
 //import android.util.Size;
 import android.view.MenuItem;
 //import android.view.Surface;
-import android.widget.Button;
 
 
 // GPS must be accessed by a Service instead of an IntentService
@@ -114,12 +97,44 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 //	static CameraDevice cameraDevice = null;
 //	static CameraCaptureSession cameraSession = null;
 //	static CaptureRequest.Builder cameraBuilder = null;
+	private static final int MY_PERMISSIONS_REQUEST_READ_FINE_LOCATION = 100;
 
 
 	public Main() {
 		super();
 
 //		Log.v("Main", "Main");
+	}
+
+	static public void requestPermission(Activity activity, String permission)
+	{
+		if (ContextCompat.checkSelfPermission(
+				activity,
+				permission) ==
+				PackageManager.PERMISSION_GRANTED)
+		{
+			// You can use the API that requires the permission.
+		}
+		else
+		if (ActivityCompat.shouldShowRequestPermissionRationale(activity,
+				permission))
+		{
+			// In an educational UI, explain to the user why your app requires this
+			// permission for a specific feature to behave as expected. In this UI,
+			// include a "cancel" or "no thanks" button that allows the user to
+			// continue using your app without granting the permission.
+		}
+		else
+		{
+			// You can directly ask for the permission.
+			ActivityCompat.requestPermissions(activity,
+					new String[] { permission },
+					MY_PERMISSIONS_REQUEST_READ_FINE_LOCATION);
+		}
+
+
+
+
 	}
 
 	static public void initialize(Activity activity) {
@@ -132,8 +147,14 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 			loadState(context);
 			updateFlashlight();
 
+
+			requestPermission(activity, Manifest.permission.ACCESS_COARSE_LOCATION);
+			requestPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION);
+
 			Intent serviceIntent = new Intent(activity, Main.class);
-			activity.startService(serviceIntent);
+			// android 26 requires this to be a foreground service to stay active
+			activity.startForegroundService(serviceIntent);
+			//activity.startService(serviceIntent);
 
 		}
 
@@ -229,7 +250,7 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
-		//	Log.v("Main", "onStartCommand main=" + main + " Settings.enableService=" + Settings.enableService);
+//Log.i("x", "Main.onStartCommand main=" + main);
 
 		if (Settings.needRestart) {
 			Settings.needRestart = false;
@@ -1231,29 +1252,34 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
     	dialog.setNegativeButton("No", null);
     	dialog.show();
 	}
-	
+
+
+// only called from the map
 	static void clearRoute(Activity activity)
 	{
 		if(Settings.route.size() == 0) return;
     	
-    	Builder dialog = new AlertDialog.Builder(activity);
-    	
-    	dialog.setMessage("Really clear route?");
-    	dialog.setPositiveButton("Yes", new DialogInterface.OnClickListener() 
-    	{
-            public void onClick(DialogInterface dialog, int which) 
-            {
-                Settings.route.clear();
-                Settings.currentRoute = null;
-                Settings.save(context);
-//                refresh();
-            }
+//     	Builder dialog = new AlertDialog.Builder(activity);
+//     	
+//     	dialog.setMessage("Really clear route?");
+//     	dialog.setPositiveButton("Yes", new DialogInterface.OnClickListener() 
+//     	{
+//             public void onClick(DialogInterface dialog, int which) 
+//             {
+//                 Settings.route.clear();
+//                 Settings.currentRoute = null;
+//                 Settings.save(context);
+// //                refresh();
+//             }
+// 
+//         });
+//     	dialog.setNegativeButton("No", null);
+//     	dialog.show();
 
-        });
-    	dialog.setNegativeButton("No", null);
-    	dialog.show();
-
-
+        Settings.route.clear();
+        Settings.currentRoute = null;
+        Settings.save(context);
+        ((Map)activity).refresh();
 		
 	}
 	
@@ -1319,28 +1345,44 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
     {
     	switch (item.getItemId()) 
     	{
-        case R.id.menu_settings: {
-			Intent i = new Intent(activity, SettingsWin.class);
-			//i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY);
-			activity.startActivity(i);
-			return true;
-		}
-//        case R.id.menu_map:
-//        	activity.startActivity(new Intent(activity, Map.class));
-//        	return true;
+//        case R.id.menu_settings: {
+//			Intent i = new Intent(activity, SettingsWin.class);
+//			//i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY);
+//			activity.startActivity(i);
+//			return true;
+//		}
+
+        case R.id.menu_map:
+        	activity.startActivity(new Intent(activity, Map.class));
+        	return true;
+
         case R.id.menu_interval: {
 			Intent i = new Intent(activity, IntervalTraining.class);
-			//i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY);
 			activity.startActivity(i);
 			return true;
 		}
+
+		case R.id.menu_savelog:
+			FileSelect.nextWindow = SettingsWin.class;
+			Main.saveLog();
+			break;
+
     	case R.id.menu_clearlog:
     		clearLog(activity);
     		break;
 
-    	case R.id.menu_clearroute:
-    		clearRoute(activity);
-    		break;
+// only called from the Map
+		case R.id.menu_load:
+   	        Settings.selectLoad = true;
+			FileSelect.nextWindow = Map.class;
+       	    activity.startActivity( new Intent(Main.context, FileSelect.class));
+			break;
+
+// only called from the Map
+   	    case R.id.menu_clearroute:
+   		    clearRoute(activity);
+   		    break;
+
         default:
         	return false;
     	}
@@ -1986,53 +2028,75 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 
 
 /// entry point from GUI
-	static void saveRoute(boolean isGPX) {
-		Settings.saveGPX = isGPX;
-		Settings.selectLoad = false;
-		Settings.selectSave = false;
-		Settings.selectSaveLog = true;
-// create a default filename
-		if(FileSelect.selectedFile == null ||
-				FileSelect.selectedFile.length() == 0)
-		{
-			if(Settings.log.size() > 0)
-			{
-				RoutePoint point = Settings.log.get(Settings.log.size() - 1);
-				Calendar end = Calendar.getInstance();
-				end.setTimeInMillis(point.time * 1000);
-				Formatter format = new Formatter();
-				format.format("%04d_%02d_%02dT%02d_%02d_%02dZ.%s",
-						end.get(Calendar.YEAR),
-						end.get(Calendar.MONTH) + 1,
-						end.get(Calendar.DAY_OF_MONTH),
-						end.get(Calendar.HOUR_OF_DAY),
-						end.get(Calendar.MINUTE),
-						end.get(Calendar.SECOND),
-						Settings.getSaveExtension());
-				String filename = format.toString();
-				FileSelect.selectedFile = filename;
-			}
-		}
+//	static void saveRoute(boolean isGPX)
+//	{
+//
+//		Settings.saveGPX = isGPX;
+//		Settings.selectLoad = false;
+//		Settings.selectSave = false;
+//		Settings.selectSaveLog = true;
+//// create a default filename
+//		if(FileSelect.selectedFile == null ||
+//				FileSelect.selectedFile.length() == 0)
+//		{
+//			if(Settings.log.size() > 0)
+//			{
+//				RoutePoint point = Settings.log.get(Settings.log.size() - 1);
+//				Calendar end = Calendar.getInstance();
+//				end.setTimeInMillis(point.time * 1000);
+//				Formatter format = new Formatter();
+//				format.format("%04d_%02d_%02dT%02d_%02d_%02dZ.%s",
+//						end.get(Calendar.YEAR),
+//						end.get(Calendar.MONTH) + 1,
+//						end.get(Calendar.DAY_OF_MONTH),
+//						end.get(Calendar.HOUR_OF_DAY),
+//						end.get(Calendar.MINUTE),
+//						end.get(Calendar.SECOND),
+//						Settings.getSaveExtension());
+//				String filename = format.toString();
+//				FileSelect.selectedFile = filename;
+//			}
+//		}
+//
+//
+//		Intent i = new Intent(Main.context, FileSelect.class);
+//		i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY | Intent.FLAG_ACTIVITY_NEW_TASK);
+//		Main.context.startActivity(i);
+//	}
+
+//	static void saveRoute(String path)
+//    {
+//		saveRoute(path, Settings.route);
+//	}
 
 
-		Intent i = new Intent(Main.context, FileSelect.class);
-		i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY | Intent.FLAG_ACTIVITY_NEW_TASK);
-		Main.context.startActivity(i);
-	}
-
-	static void saveRoute(String path) 
-    {
-		saveRoute(path, Settings.route);
-	}
 
 
-
-
-
-	static void saveLog(String path) {
+// entry point for saving the log
+	static void saveLog() {
 		sayText("Saving workout");
-    	saveRoute(path, Settings.log);
+
+// create the filename from the last timestamp
+		RoutePoint point = Settings.log.get(Settings.log.size() - 1);
+		Calendar end = Calendar.getInstance();
+		end.setTimeInMillis(point.time * 1000);
+		Formatter format = new Formatter();
+		format.format("%04d_%02d_%02dT%02d_%02d_%02dZ.%s",
+				end.get(Calendar.YEAR),
+				end.get(Calendar.MONTH) + 1,
+				end.get(Calendar.DAY_OF_MONTH),
+				end.get(Calendar.HOUR_OF_DAY),
+				end.get(Calendar.MINUTE),
+				end.get(Calendar.SECOND),
+				Settings.getSaveExtension());
+		String filename = Settings.dir + "/" + format.toString();
+// save it
+		saveRoute(filename, Settings.log);
     	sayText("workout saved");
+
+//		sayText("Saving workout");
+//    	saveRoute(path, Settings.log);
+//    	sayText("workout saved");
 	}
     
 	public static void startLog() 
@@ -2052,7 +2116,12 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 
  	static void sayText(String text)
  	{
- 		if(ttsReady) tts.speak(text, TextToSpeech.QUEUE_ADD, null);
+ 		if(ttsReady)
+		{
+			HashMap<String, String> params = new HashMap<String, String>();
+			params.put(TextToSpeech.Engine.KEY_PARAM_VOLUME, "1.0");
+			tts.speak(text, TextToSpeech.QUEUE_ADD, params);
+		}
  	}
 
 

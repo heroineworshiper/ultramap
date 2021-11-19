@@ -81,12 +81,12 @@ public class IntervalTraining extends WindowBase
     {
     	switch(item.getItemId())
     	{
-			case R.id.menu_settings: {
-				Intent i = new Intent(this, SettingsWin.class);
-				i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY);
-				this.startActivity(i);
-				return true;
-			}
+//			case R.id.menu_settings: {
+//				Intent i = new Intent(this, SettingsWin.class);
+//				i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY);
+//				this.startActivity(i);
+//				return true;
+//			}
 
 			case R.id.menu_interval_settings: {
 				Intent i = new Intent(this, IntervalSettings.class);

@@ -136,7 +136,7 @@ public class IntervalSettings extends WindowBase implements OnItemSelectedListen
    
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.settings_menu, menu);
+//        getMenuInflater().inflate(R.menu.settings_menu, menu);
         return true;
     }
     

@@ -10,6 +10,7 @@ import android.media.MediaPlayer;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 
 public class Metronome extends Thread
 {
@@ -19,64 +20,44 @@ public class Metronome extends Thread
 	final int BUFFER_SIZE = 32768;
 	final int SAMPLE_RATE = 44100;
 	final int HEADER_SIZE = 44;
+// contiguous samples extracted from the loop
 	byte [] hwData = new byte[BUFFER_SIZE];
-	byte [] loopData;
-	boolean done = false;
-	int loopSize = 0;
 	int readOffset = 0;
+
+	byte [] loopData;
+	int loopSize = 0;
+
+	boolean done = false;
 	AudioTrack atrack;
 	
 	Metronome()
 	{
-		loopSize = SAMPLE_RATE * 60 / Settings.beatsPerMinute;
+		// the array of sound files for different beats
+		int[] sounds = Settings.soundToFiles(Settings.sound);
+		// the smallest buffer which can contain all the sounds at the desired tempo
+		loopSize = SAMPLE_RATE * 60 * sounds.length / Settings.beatsPerMinute;
 		loopData = new byte[loopSize];
-		InputStream sound = Main.main.getResources().openRawResource(Settings.soundToFile(Settings.sound));
-		ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-		int nRead;
-		byte [] data = new byte[16384];
-		try {
-			while((nRead = sound.read(data, 0, data.length)) != -1)
-            {
-                buffer.write(data, 0, nRead);
-            }
+		Arrays.fill(loopData, (byte) 0x80);
 
-			buffer.flush();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		byte [] sound2 = buffer.toByteArray();
-
-
-		for(int i = HEADER_SIZE;
-			i < sound2.length && i - HEADER_SIZE < loopData.length;
-			i++)
+		for(int i = 0; i < sounds.length; i++)
 		{
-			loopData[i - HEADER_SIZE] = sound2[i];
+			InputStream sound = Main.main.getResources().openRawResource(sounds[i]);
+			// extract byte array from the sound file
+			try {
+				int samples = sound.available() - HEADER_SIZE;
+				int dstOffset = SAMPLE_RATE * 60 * i / Settings.beatsPerMinute;
+				if(samples + dstOffset > loopSize)
+				{
+					samples = loopSize - dstOffset;
+				}
+				sound.skip(HEADER_SIZE);
+				sound.read(loopData, dstOffset, samples);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+
 		}
-		
-		for(int i = sound2.length - HEADER_SIZE; i < loopData.length; i++)
-		{
-			loopData[i] = (byte)0x80;
-		}
-		
-// 		StreamProxy proxy = new StreamProxy();
-// 		proxy.setData(Loopback.data);
-// 		proxy.init();
-// 		proxy.start();
-// 		String proxyUrl = String.format("http://127.0.0.1:%d/%s", 
-// 				proxy.getPort(), 
-// 				"x.wav");
-// 		MediaPlayer mediaPlayer = new MediaPlayer();
-// 		mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
-// 		try {
-// 			mediaPlayer.setDataSource(proxyUrl);
-// 			mediaPlayer.prepare(); // might take long! (for buffering, etc)
-// 		} catch (Exception e) {
-// 			e.printStackTrace();
-// 		}
-// 		mediaPlayer.start();
-		
-		
+
 		
     	atrack = new AudioTrack(
     			AudioManager.STREAM_MUSIC, 
@@ -87,7 +68,6 @@ public class Metronome extends Thread
     			AudioTrack.MODE_STREAM);
     	atrack.play();
 
-    	byte hwData[] = new byte[BUFFER_SIZE];
 
 	}
 
@@ -95,13 +75,6 @@ public class Metronome extends Thread
 	{
 		atrack.stop();
 		done = true;
-		
-// 		if(mediaPlayer != null) {
-// 			mediaPlayer.stop();
-// 			mediaPlayer = null;
-// 			proxy.stop();
-// 			proxy = null;
-// 		}
 	}
 
 	public void run() 

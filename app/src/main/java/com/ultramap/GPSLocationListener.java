@@ -17,7 +17,7 @@ public class GPSLocationListener implements LocationListener, GpsStatus.Listener
 
 	@Override
 	public void onLocationChanged(Location location) {
-//Log.v("GPSLocationListener", "onLocationChanged location=" + location);
+Log.v("GPSLocationListener", "onLocationChanged location=" + location);
 //		synchronized (Main.main) {
 //			Main.location = new Location(location);
 //		}

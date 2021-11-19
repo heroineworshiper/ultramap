@@ -1,0 +1,10 @@
+What you'll find here:
+
+Junk GPS tracker with support for interval training, metronome, mapping.
+
+Has a web server for viewing workouts on a confuser.
+
+
+Auto installation is a work in progress.
+To install it, there must be an /sdcard/ultramap directory
+The html directory must be copied to /sdcard/ultramap/

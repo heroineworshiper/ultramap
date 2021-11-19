@@ -275,19 +275,46 @@ public class Settings {
 			return "gpx";
 	}
 
-	static int soundToFile(int sound)
+
+	// returns an array of sound files for the given sound
+	static int[] soundToFiles(int sound)
 	{
 		switch(sound) {
 			case 0:
-				return R.raw.hi;
+			{
+				final int[] result = { R.raw.hi };
+				return result;
+			}
+
 			case 1:
-				return R.raw.cimbal;
+			{
+				final int[] result = { R.raw.cimbal };
+				return result;
+			}
+
 			case 2:
-				return R.raw.cowbell;
+			{
+				final int[] result = { R.raw.cowbell };
+				return result;
+			}
+
+
 			case 3:
-				return R.raw.dino;
+			{
+				final int[] dinoSounds = {
+				R.raw.dino01, R.raw.dino02, R.raw.dino03, R.raw.dino04 };
+				return dinoSounds;
+			}
+
+			case 4:
+			{
+				final int[] horseSounds = {
+				R.raw.horse01, R.raw.horse02, R.raw.horse03, R.raw.horse04 };
+				return horseSounds;
+			}
 		}
-		return R.raw.hi;
+		final int[] result = { R.raw.hi };
+		return result;
 	}
 
 
@@ -342,7 +369,10 @@ public class Settings {
 
 	static boolean metronome = false;
 	static int beatsPerMinute = 60;
+	// menu item selected for the metronome
 	static int sound = 0;
+	// current sound file for the current metronome sound
+	static int soundFile = 0;
 
 // units
 	static final int SECONDS = 0;

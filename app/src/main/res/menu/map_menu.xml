@@ -1,10 +1,8 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:id="@+id/menu_deletepoint" android:title="Delete Point" />
-    <item android:id="@+id/menu_showroute" android:title="Load route" />
-    <item android:id="@+id/menu_saveroute" android:title="Save route" />
-    <item android:id="@+id/menu_editroute" android:checkable="true" android:title="Edit route" />
-    <item android:id="@+id/menu_settings" android:title="Mane Settings" />
-    <item android:id="@+id/menu_interval" android:title="Interval training" />
+    <item android:id="@+id/menu_load" android:title="Load route" />
+    <item android:id="@+id/menu_clearroute" android:title="Clear route" />
+    <item android:id="@+id/menu_savelog" android:title="Save log" />
+    <item android:id="@+id/menu_clearlog" android:title="Clear log" />
 </menu>
 
 
