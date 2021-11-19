@@ -8,3 +8,9 @@ Has a web server for viewing workouts on a confuser.
 Auto installation is a work in progress.
 To install it, there must be an /sdcard/ultramap directory
 The html directory must be copied to /sdcard/ultramap/
+
+
+TODO:
+Corrupted log when a recording is cleared but not stopped.
+Intervals shouldn't take the text entry until the next interval starts & before
+the next interval ends.
