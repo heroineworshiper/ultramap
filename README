@@ -6,13 +6,24 @@ Has a web server for viewing workouts on a confuser.
 
 
 Auto installation is a work in progress.
+A more automated way of doing it is obsolete in 3 months.
 To install it, there must be an /sdcard/ultramap directory
 The html directory must be copied to /sdcard/ultramap/
 
-For android 11, go to settings -> apps -> ultramap -> location
-Enable location access ALL THE TIME.
+For android 11, 
 
-A more automated way of doing it is obsolete in 3 months.
+Go to settings -> apps -> ultramap -> location 
+Enable location access ALL THE TIME.
+Go to settings -> apps -> ultramap -> advanced -> battery -> battery optimization
+Change the not optimized widget to ALL
+Find ultramap in the list
+Change from optimize to don't optimize
+
+
+Go to settings -> location -> advanced
+Disable google location accuracy
+Disable google location history
+
 
 
 TODO:
@@ -20,3 +31,4 @@ Corrupted log when a recording is cleared but not stopped.
 Intervals shouldn't take the text entry until the next interval starts & before
 the next interval ends.
 Show the IP address of the web server.
+Show if the log has been saved.
