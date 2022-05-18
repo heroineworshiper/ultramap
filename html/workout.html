@@ -199,8 +199,9 @@ Smoothing:
 	var dragMaxX = 0;
 // default value for URL box
 	var defaultURL = "";
-// seconds of waveform selected
+// starting slot of highlighted region
 	var highlightBegin = 0;
+// ending slot of highlighted region
 	var highlightEnd = 1;
 	var dragHighlightBegin = 0;
 	var dragHighlightEnd = 1;
@@ -654,6 +655,7 @@ Smoothing:
 		clampGraph();
 		
 		if(needData) calculateGraph();
+        calculateScale();
 		drawGraph();
 		updateZoom();
         drawMap(needData, needData, true)
@@ -1224,24 +1226,52 @@ Smoothing:
 	//			debug("calculateGraph", "distance=" + distance + " time=" + time + " pace=" + pace);
 			}
 		}
-
-
-// get Y limits
+	}
+    
+    function calculateScale()
+    {
 		documentMinPace = 99999;
 		documentMaxPace = -99999;
 		documentMinAlt = 99999;
 		documentMaxAlt = -99999;
-		for(var i = 0; i < graphData.length; i++)
-		{
-			var slot = graphData[i];
-			if(slot.pace > 0)
-			{
-				if(slot.pace < documentMinPace) documentMinPace = slot.pace;
-				if(slot.pace > documentMaxPace) documentMaxPace = slot.pace;
-			}
-			if(slot.altitude < documentMinAlt) documentMinAlt = slot.altitude;
-			if(slot.altitude > documentMaxAlt) documentMaxAlt = slot.altitude;
-		}
+        
+        
+// get Y limits in selected range only
+        if(true)
+        {
+// route length is the same as graph length
+            var highlightBegin_ = Math.floor(clamp(highlightBegin, 0, graphData.length));
+            var highlightEnd_ = Math.floor(clamp(highlightEnd, 0, graphData.length));
+//            debug("calculateScale", "highlightBegin_=" + highlightBegin_ +
+//                " highlightEnd_=" + highlightEnd_ +
+//                " length=" + graphData.length);
+		    for(var i = highlightBegin_; i < highlightEnd_; i++)
+		    {
+			    var slot = graphData[i];
+			    if(slot.pace > 0)
+			    {
+				    if(slot.pace < documentMinPace) documentMinPace = slot.pace;
+				    if(slot.pace > documentMaxPace) documentMaxPace = slot.pace;
+			    }
+			    if(slot.altitude < documentMinAlt) documentMinAlt = slot.altitude;
+			    if(slot.altitude > documentMaxAlt) documentMaxAlt = slot.altitude;
+		    }
+        }
+        else
+// get Y limits in entire file
+        {
+		    for(var i = 0; i < graphData.length; i++)
+		    {
+			    var slot = graphData[i];
+			    if(slot.pace > 0)
+			    {
+				    if(slot.pace < documentMinPace) documentMinPace = slot.pace;
+				    if(slot.pace > documentMaxPace) documentMaxPace = slot.pace;
+			    }
+			    if(slot.altitude < documentMinAlt) documentMinAlt = slot.altitude;
+			    if(slot.altitude > documentMaxAlt) documentMaxAlt = slot.altitude;
+		    }
+        }
 
 		documentMaxPace = clamp(documentMaxPace, ABS_MIN_PACE, ABS_MAX_PACE);
 		documentMinPace = clamp(documentMinPace, ABS_MIN_PACE, ABS_MAX_PACE);
@@ -1254,7 +1284,7 @@ Smoothing:
 //		debug("calculateGraph", "length=" + graphData.length);
 //		debug("calculateGraph", "documentMinPace=" + documentMinPace + " documentMaxPace=" + documentMaxPace);
 //		debug("calculateGraph", "documentMinAlt=" + documentMinAlt + " documentMaxAlt=" + documentMaxAlt);
-	}
+    }
     
 
 	function drawMap(doPath, doHighlight, doCursor)
@@ -1451,7 +1481,10 @@ Smoothing:
 //		debug("drawGraph", "maxPace=" + maxPace + " minPace=" + minPace);
 //		debug("drawGraph", "minAlt=" + minAlt + " maxAlt=" + maxAlt);
 //		paceToPixel(500);
-//		debug("drawGraph", "graphData.length=" + graphData.length);
+// 		debug("drawGraph", "highlightBegin=" + highlightBegin +
+//             " highlightEnd=" + highlightEnd +
+//             " route.length=" + route.length + 
+//             " graphData.length=" + graphData.length);
 
 		var time1 = new Date().getTime();
 		altScale = WAVEFORM_HEIGHT / (maxAlt - minAlt);

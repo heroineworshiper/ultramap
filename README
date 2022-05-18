@@ -8,14 +8,15 @@ Has a web server for viewing workouts on a confuser.
 Auto installation is a work in progress.
 A more automated way of doing it is obsolete in 3 months.
 To install it, there must be an /sdcard/ultramap directory
-The html directory must be copied to /sdcard/ultramap/
+The html directory must be copied to /sdcard/ultramap/ yielding
+/sdcard/ultramap/html/
 
 For android 11, 
 
 Go to settings -> apps -> ultramap -> location 
 Enable location access ALL THE TIME.
 Go to settings -> apps -> ultramap -> advanced -> battery -> battery optimization
-Change the not optimized widget to ALL
+Change the "not optimized" widget to ALL
 Find ultramap in the list
 Change from optimize to don't optimize
 
