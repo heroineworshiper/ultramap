@@ -60,7 +60,7 @@ public class Settings {
 		latitude = file.getFloat("latitude", (float)latitude);
 		longitude = file.getFloat("longitude", (float)longitude);
 		zoom = file.getFloat("zoom", (float)zoom);
-		enableService = file.getBoolean("enableService", enableService);
+//		enableService = file.getBoolean("enableService", enableService);
 		externalGPS = file.getBoolean("externalGPS", externalGPS);
 //		voiceFeedback = file.getBoolean("voiceFeedback", voiceFeedback);
 		currentRoute = file.getString("currentRoute", currentRoute);
@@ -87,7 +87,7 @@ public class Settings {
 
 		file.putInt("beatsPerMinute",  beatsPerMinute);
 		file.putBoolean("metronome",  metronome);
-		file.putBoolean("enableService",  enableService);
+//		file.putBoolean("enableService",  enableService);
 		file.putBoolean("externalGPS",  externalGPS);
 //		file.putBoolean("voiceFeedback",  voiceFeedback);
 		file.putFloat("bearing", (float)bearing);
@@ -138,7 +138,7 @@ public class Settings {
 //			offset = intervalDistance.loadState(prevState, offset);
 			offset = intervalTimer.loadState(prevState, offset);
 			offset = logTimer.loadState(prevState, offset);
-			needRestart = read_int32(prevState, offset) > 0 ? true : false;
+//			needRestart = read_int32(prevState, offset) > 0 ? true : false;
 			offset += 4;
 			needPace = read_int32(prevState, offset) > 0 ? true : false;
 			offset += 4;
@@ -182,7 +182,7 @@ public class Settings {
 //		offset = intervalDistance.saveState(buffer, offset);
 		offset = intervalTimer.saveState(buffer, offset);
 		offset = logTimer.saveState(buffer, offset);
-		offset = write_int32(buffer, offset, needRestart ? 1 : 0);
+//		offset = write_int32(buffer, offset, needRestart ? 1 : 0);
 		offset = write_int32(buffer, offset, needPace ? 1 : 0);
 		offset = write_int32(buffer, offset, peakIndex);
 		offset = write_float32(buffer, offset, (float)peakDuration);
@@ -363,7 +363,7 @@ public class Settings {
 	static int fakeCounter = 0;
 
 	// enable the ultramap service
-	static boolean enableService = true;
+//	static boolean enableService = true;
 	static boolean externalGPS = false;
 	static double bearing = 0;
 	static double latitude = 0;
@@ -485,7 +485,7 @@ public class Settings {
 	static XYZ prevFineXYZ;
 	static XYZ prevCoarseXYZ;
 // need to restart GPS
-	static boolean needRestart = true;
+//	static boolean needRestart = true;
 	static boolean flashlight = false;
 }
 

@@ -1,93 +1,194 @@
+/*
+ * Ultramap
+ * Copyright (C) 2021-2023 Adam Williams <broadcast at earthling dot net>
+ * 
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * 
+ */
+
+// Example: https://robertohuertas.com/2019/06/29/android_foreground_services/
+
+
+
+
+
 package com.ultramap;
 
 import java.io.BufferedWriter;
-import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Calendar;
 import java.util.Formatter;
-import java.util.Iterator;
+import java.util.HashMap;
 import java.util.Locale;
-import java.util.TimeZone;
 import java.util.Vector;
 
 import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GooglePlayServicesClient.ConnectionCallbacks;
-import com.google.android.gms.common.GooglePlayServicesClient.OnConnectionFailedListener;
+import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
+import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.model.LatLng;
-import com.ultramap.R;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.AlertDialog;
-import android.app.IntentService;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.app.AlertDialog.Builder;
-import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.ServiceConnection;
-import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
-import android.location.GpsSatellite;
-import android.location.GpsStatus;
+import android.hardware.Camera;
+//import android.hardware.camera2.CameraAccessException;
+//import android.hardware.camera2.CameraCaptureSession;
+//import android.hardware.camera2.CameraCharacteristics;
+//import android.hardware.camera2.CameraDevice;
+//import android.hardware.camera2.CameraManager;
+//import android.hardware.camera2.CameraMetadata;
+//import android.hardware.camera2.CaptureRequest;
 import android.location.Location;
-import android.location.LocationListener;
-import android.location.LocationManager;
-import android.os.Binder;
-import android.os.Bundle;
 import android.os.IBinder;
 import android.os.SystemClock;
 import android.speech.tts.TextToSpeech;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import android.util.Log;
+//import android.util.Size;
 import android.view.MenuItem;
-import android.widget.Button;
+//import android.view.Surface;
 
 
 // GPS must be accessed by a Service instead of an IntentService
-public class Main extends Service implements 
-	OnConnectionFailedListener, ConnectionCallbacks, TextToSpeech.OnInitListener, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
-	
+public class Main extends Service implements TextToSpeech.OnInitListener {
+	// only static variables survive the alarm calls
+	static Main main;
+	static Context context;
+	static Settings settings;
+	static boolean haveGUI = false;
+	static boolean haveLocation = false;
+	static long locationTime = 0;
+	static float locationAccuracy = 0;
+	static Timer lastLocationTimer = new Timer();
+	static int locationTimeout = 0;
+	static Location location;
+	// total location updates since restarting GPS
+	static int totalLocations = 0;
+	static ExternalClient externalClient;
+	static AlarmManager alarmManager;
+	static TextToSpeech tts;
+	static boolean ttsReady;
+	static OutputStream logTemp;
+	static int LOG_PACKET_SIZE = 32;
+	static String bluetoothStatus = "Bluetooth status";
+	static WebServer webServer;
+	// The number of loation threads.  Set real low to disable the location pool
+	static final int POOL_SIZE = 10;
+	//	static final int POOL_SIZE = 1;
+	// in ms.  Set real high to disable the location pool
+	static final int MAX_AGE = 10000;
+	//	static final int MAX_AGE = 1000000000;
+	// GPS timeouts in ms
+	// time to acquire the 1st signal
+	static final int GPS_TIMEOUT1 = 300000;
+	// time to give up after 1st signal is received
+	static final int GPS_TIMEOUT2 = 30000;
+	static LocationThread[] locationPool = new LocationThread[POOL_SIZE];
+	static boolean haveLocationPool = false;
+	static Metronome metronome = null;
+	static int prevTempo = 0;
+	static int prevSound = -1;
+//	static boolean flashlightOn = false;
+	static Camera cam = null;
+//	static CameraManager cameraManager = null;
+//	static CameraDevice cameraDevice = null;
+//	static CameraCaptureSession cameraSession = null;
+//	static CaptureRequest.Builder cameraBuilder = null;
+	private static final int MY_PERMISSIONS_REQUEST_READ_FINE_LOCATION = 100;
+
+
 	public Main() {
 		super();
-		
+
 //		Log.v("Main", "Main");
 	}
 
-	static public void initialize(Activity activity)
+	static public void requestPermission(Activity activity, String permission)
 	{
+		if (ContextCompat.checkSelfPermission(
+				activity,
+				permission) ==
+				PackageManager.PERMISSION_GRANTED)
+		{
+			// You can use the API that requires the permission.
+		}
+		else
+		if (ActivityCompat.shouldShowRequestPermissionRationale(activity,
+				permission))
+		{
+			// In an educational UI, explain to the user why your app requires this
+			// permission for a specific feature to behave as expected. In this UI,
+			// include a "cancel" or "no thanks" button that allows the user to
+			// continue using your app without granting the permission.
+		}
+		else
+		{
+			// You can directly ask for the permission.
+			ActivityCompat.requestPermissions(activity,
+					new String[] { permission },
+					MY_PERMISSIONS_REQUEST_READ_FINE_LOCATION);
+		}
+
+
+
+
+	}
+
+	static public void initialize(Activity activity) {
 		Main.context = activity;
 		haveGUI = true;
 
-		if(main == null) 
-		{
+		if (main == null) {
+			lastLocationTimer.start();
 //			Log.v("Main", "initialize");
 			loadState(context);
-			
-			
+//			updateFlashlight();
+
+
+			requestPermission(activity, Manifest.permission.ACCESS_COARSE_LOCATION);
+			requestPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION);
+
 			Intent serviceIntent = new Intent(activity, Main.class);
-			activity.startService(serviceIntent);
-			
+			// android 26 requires this to be a foreground service to stay active
+			activity.startForegroundService(serviceIntent);
+			//activity.startService(serviceIntent);
+
 		}
-		
+
 	}
 
-// recover where we were when shut down
-	static void loadState(Context context)
-	{
-		if(settings == null)
-		{
+	// recover where we were when shut down
+	static void loadState(Context context) {
+		if (settings == null) {
 			settings = new Settings();
 			Settings.load(context);
 			Settings.loadState(context);
@@ -96,17 +197,14 @@ public class Main extends Service implements
 			FileInputStream fd = null;
 			try {
 				fd = context.openFileInput("logTemp");
-				
-			
-				byte [] buffer = new byte[LOG_PACKET_SIZE * 50];
+
+
+				byte[] buffer = new byte[LOG_PACKET_SIZE * 50];
 				boolean done = false;
-				while(!done)
-				{
+				while (!done) {
 					int bytes = fd.read(buffer, 0, buffer.length);
-					for(int i = 0; i < bytes; i += LOG_PACKET_SIZE)
-					{
-						if(bytes - i >= LOG_PACKET_SIZE)
-						{
+					for (int i = 0; i < bytes; i += LOG_PACKET_SIZE) {
+						if (bytes - i >= LOG_PACKET_SIZE) {
 							int offset = i;
 							RoutePoint point = new RoutePoint();
 							point.latitude = Settings.read_float32(buffer, offset);
@@ -125,32 +223,29 @@ public class Main extends Service implements
 
 						}
 					}
-					
-					if(bytes < LOG_PACKET_SIZE) done = true;
+
+					if (bytes < LOG_PACKET_SIZE) done = true;
 				}
 
 				Settings.prevFineXYZ = null;
 				Settings.prevCoarseXYZ = null;
 
-				if(Settings.log.size() > 0)
-				{
+				if (Settings.log.size() > 0) {
 					RoutePoint lastPoint = Settings.log.get(Settings.log.size() - 1);
 					Settings.prevFineXYZ = llh_to_xyz(
-							lastPoint.latitude, 
-							lastPoint.longitude, 
+							lastPoint.latitude,
+							lastPoint.longitude,
 							lastPoint.altitude);
-					
+
 // find the last change in distance
-					for(int i = Settings.log.size() - 2; i >= 0; i--)
-					{
+					for (int i = Settings.log.size() - 2; i >= 0; i--) {
 						RoutePoint point2 = Settings.log.get(i);
-						if(lastPoint.distance != point2.distance ||
-							i == 0)
-						{
+						if (lastPoint.distance != point2.distance ||
+								i == 0) {
 							RoutePoint point3 = Settings.log.get(i + 1);
 							Settings.prevCoarseXYZ = llh_to_xyz(
-									point3.latitude, 
-									point3.longitude, 
+									point3.latitude,
+									point3.longitude,
 									point3.altitude);
 							break;
 						}
@@ -161,11 +256,11 @@ public class Main extends Service implements
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-			
-			
+
+
 		}
 	}
-	
+
 //	boolean needGPS()
 //	{
 //		return (Settings.keepAlive ||
@@ -180,18 +275,14 @@ public class Main extends Service implements
 	}
 
 	@Override
-	public int onStartCommand(Intent intent, int flags, int startId) 
-	{
-	//	Log.v("Main", "onStartCommand main=" + main + " Settings.enableService=" + Settings.enableService);
+	public int onStartCommand(Intent intent, int flags, int startId) {
+Log.i("x", "Main.onStartCommand main=" + main);
 
-		if(Settings.needRestart)
-		{
-			Settings.needRestart = false;
-            mGoogleApiClient = null;
-		}
-		
-		if(main == null)
-		{
+// 		if (Settings.needRestart) {
+// 			Settings.needRestart = false;
+// 		}
+
+		if (main == null) {
 //			Log.v("Main", "onStartCommand main=" + main + "keepAlive=" + keepAlive);
 
 			haveGUI = false;
@@ -199,137 +290,200 @@ public class Main extends Service implements
 			context = getApplicationContext();
 			alarmManager = (AlarmManager) context.getSystemService(
 					Activity.ALARM_SERVICE);
-	 		tts = new TextToSpeech(context, this);
+			tts = new TextToSpeech(context, this);
 
 			loadState(context);
+//			updateFlashlight();
 		}
 
-		if(Settings.enableService)
-		{
-			setAlarm();
+        while(true)
+        {
+Log.i("x", "Main.onStartCommand 1");
+//		if (Settings.enableService) {
+//			setAlarm();
 //			Log.v("Main", "onStartCommand locationClient=" + locationClient);
 
-			if(webServer == null)
-			{
+			if (webServer == null) {
 				webServer = new WebServer();
 				webServer.start();
 			}
 
-			if(mGoogleApiClient == null && !Settings.externalGPS)
-			{
-				locationListener = new GPSLocationListener();
-				locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
 
-// Only getting 1hz
-				final int locationInterval = 1000;
-// generates a lot of console garbage without locationManager
-				if(true)
-				{
-		            locationManager.requestLocationUpdates(
-		            	LocationManager.GPS_PROVIDER,
-		            	locationInterval, 
-		                0,
-		                locationListener);
-		            locationManager.addGpsStatusListener(locationListener);
+			long minAge = 0x7fffffff;
+			int minIndex = -1;
+			long maxAge = -1;
+			int maxIndex = -1;
+			int totalThreads = 0;
+			if (!Settings.externalGPS) {
+				// Find most recent locationThread
+				for (int i = 0; i < POOL_SIZE; i++) {
+					if (locationPool[i] != null) {
+						totalThreads++;
+						long age = locationPool[i].timer.getTime();
+						if (age < minAge) {
+							minAge = age;
+							minIndex = i;
+						}
+
+						if (age > maxAge) {
+							maxAge = age;
+							maxIndex = i;
+						}
+					}
 				}
 
-                mGoogleApiClient = new GoogleApiClient.Builder(this)
-                        .addConnectionCallbacks(this)
-                        .addOnConnectionFailedListener(this)
-                        .addApi(LocationServices.API)
-                        .build();
 
-                LocationRequest mLocationRequest=new LocationRequest();
-                mLocationRequest.setInterval(locationInterval);
-                mLocationRequest.setFastestInterval(locationInterval);
-                mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+				// time to create another locationThread
+				if (minAge > MAX_AGE) {
+					int index = -1;
+					if (totalThreads < POOL_SIZE) {
+						for (int i = 0; i < POOL_SIZE; i++) {
+							if (locationPool[i] == null) {
+								index = i;
+								break;
+							}
+						}
+					} else {
+						// replace oldest one
+						index = maxIndex;
+					}
 
+					if (locationPool[index] != null) {
+						locationPool[index].stop();
+					}
 
-                mGoogleApiClient.connect();
-
-	            Log.v("Main", "onStartCommand started GPS");
-			}
-			else
-			if(externalClient == null && Settings.externalGPS)
-			{
+					Log.v("Main", "onStartCommand new locationThread in slot " + index);
+					locationPool[index] = new LocationThread();
+					haveLocationPool = true;
+				}
+			} else if (externalClient == null) {
 				externalClient = new ExternalClient();
 				externalClient.start();
 			}
 
 
-
 			Location location = null;
-			if(!Settings.externalGPS &&
-                    mGoogleApiClient != null &&
-                    mGoogleApiClient.isConnected())
-			{
-				location = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-			}
-			else
-			if(Settings.externalGPS &&
-				externalClient != null)
-			{
+			if (!Settings.externalGPS) {
+				// Get location from most recent locationThread
+				if (minIndex < 0) {
+					minIndex = POOL_SIZE - 1;
+				}
+
+				for (int i = 0; i < POOL_SIZE; i++) {
+					if (locationPool[minIndex] != null) {
+						location = LocationServices.FusedLocationApi.getLastLocation(
+								locationPool[minIndex].mGoogleApiClient);
+						if (location != null) {
+							break;
+						}
+
+						minIndex--;
+						if (minIndex < 0) {
+							minIndex = POOL_SIZE - 1;
+						}
+					}
+				}
+
+
+				// Can't pull the location.  Have to push it from the GPSLocationListeners to this.location, then copy it.
+				//synchronized(this)
+				//{
+				//	if(this.location != null) {
+				//		location = new Location(this.location);
+				//	}
+				//}
+			} else if (Settings.externalGPS &&
+					externalClient != null) {
 				location = externalClient.getLastLocation();
 			}
-//			if(location != null)
-//				Log.v("Main", "run " + location.getAccuracy());
-			
-			if(location != null && 
-				location.getAccuracy() < Settings.MIN_ACCURACY)
-			{
-				haveLocation = true;
-				
-				if(Settings.fakeGPS)
-				{
+
+
+			// new location hasn't been received since restarting
+			locationTimeout = GPS_TIMEOUT1;
+			if (totalLocations > 0) {
+				// new location has been received since restarting
+				locationTimeout = GPS_TIMEOUT2;
+			}
+
+//			Log.i("Main", " Timer=" + lastLocationTimer.getTime() +
+//					" timeout=" + locationTimeout +
+//					" newtime=" + ((location == null ? -1 : location.getTime()) % 60000) +
+//					" prevtime=" + (locationTime % 60000) +
+//					" location=" + (location != null));
+
+
+			if (location != null) {
+				if (location.getTime() == locationTime) {
+					// if the location time hasn't changed in too long, restart
+					if (lastLocationTimer.getTime() > locationTimeout) {
+						haveLocation = false;
+						restartGPS();
+					}
+				} else {
+					// the location time has changed
+					totalLocations++;
+					lastLocationTimer.reset();
+					lastLocationTimer.start();
+					haveLocation = true;
+				}
+
+				locationTime = location.getTime();
+				locationAccuracy = location.getAccuracy();
+
+				if (!Settings.externalGPS) {
+					synchronized (this) {
+						this.location = location;
+					}
+				}
+			} else {
+				haveLocation = false;
+				// if the location time hasn't changed in too long, restart
+				if (lastLocationTimer.getTime() > locationTimeout) {
+					restartGPS();
+				}
+			}
+
+
+			if (location != null &&
+					location.getAccuracy() < Settings.MIN_ACCURACY) {
+
+				if (Settings.fakeGPS) {
 					location.setLatitude(Settings.fakeLatitude);
 					location.setLongitude(Settings.fakeLongitude);
 					location.setAltitude(Settings.fakeAltitude);
 					Settings.fakeLatitude += Settings.latitudeStep;
-					
+
 					double step = Settings.slowStep;
-					if(Settings.intervalState == Settings.WORK &&
-							Settings.intervalActive)
-					{
-						if(Settings.fakeCounter < 10)
+					if (Settings.intervalState == Settings.WORK &&
+							Settings.intervalActive) {
+						if (Settings.fakeCounter < 10)
 							Settings.fakeCounter++;
-						if(Settings.fakeCounter >= 10)
+						if (Settings.fakeCounter >= 10)
 							step = Settings.fastStep;
-					}
-					else
-					{
-						if(Settings.fakeCounter > 0)
+					} else {
+						if (Settings.fakeCounter > 0)
 							Settings.fakeCounter--;
-						if(Settings.fakeCounter > 0)
+						if (Settings.fakeCounter > 0)
 							step = Settings.fastStep;
 					}
-					
-					
+
+
 //					Log.v("onStartCommand", "step=" + step);
-					
-					
+
+
 					Settings.fakeLongitude += step;
 					Settings.fakeAltitude += Settings.altitudeStep;
-					
+
 				}
-				
-				if(Settings.recordRoute)
-				{
+
+				if (Settings.recordRoute) {
 //Log.v("Main", "onStartCommand location=" + location);
 
-                    updateLog(location);
+					updateLog(location);
 				}
-				
-				
-				synchronized(this)
-				{
-					this.location = location;
-				}
+
 			}
-			else
-			{
-				haveLocation = false;
-			}
-			
+
 //            int maxSatellites = status.getMaxSatellites();
 //
 //            Iterator<GpsSatellite> it = status.getSatellites().iterator();
@@ -340,56 +494,272 @@ public class Main extends Service implements
 //                it.next();
 //                count++;
 //            }
-            
-			if(Settings.intervalActive)
-			{
+
+			if (Settings.intervalActive) {
+
 				updateInterval(location);
 			}
-			
-			if(Settings.needPace) updatePace();
-//Log.v("Main", "run Settings.intervalActive=" + Settings.intervalActive);
-		
-		
-		
-		}
-		else
-		if(mGoogleApiClient != null)
-		{
-			if(locationManager != null)
-			{
-				locationManager.removeUpdates(locationListener);
-				locationManager.removeGpsStatusListener(locationListener);
-			
-			}
 
-            mGoogleApiClient.disconnect();
-            mGoogleApiClient = null;
-			
-			haveLocation = false;
-			Log.v("Main", "onStartCommand stopped GPS");
+			if (Settings.needPace) updatePace();
+//Log.v("Main", "run Settings.intervalActive=" + Settings.intervalActive);
+
+
+// 		} else if (haveLocationPool == true) {
+// 			for (int i = 0; i < POOL_SIZE; i++) {
+// 				if (locationPool[i] != null) {
+// 					locationPool[i].stop();
+// 					locationPool[i] = null;
+// 				}
+// 			}
+// 
+// 
+// 			haveLocation = false;
+// 			Log.v("Main", "onStartCommand stopped GPS");
+// 		}
+
+		if ((prevTempo != Settings.beatsPerMinute ||
+				prevSound != Settings.sound) &&
+				metronome != null) {
+			metronome.stop2();
+			metronome = null;
 		}
-		
+
+		if (Settings.metronome && metronome == null) {
+			metronome = new Metronome();
+			metronome.start();
+			prevTempo = Settings.beatsPerMinute;
+			prevSound = Settings.sound;
+		} else if (!Settings.metronome && metronome != null) {
+			metronome.stop2();
+			metronome = null;
+		}
+
+
 		Settings.saveState(context);
 
-	
-//        Log.v("Main", "run 2 keepAlive=" + keepAlive);
+        try
+        {
+            Thread.sleep(1000);
+        }catch(Exception e)
+        {
+        }
+Log.i("x", "Main.onStartCommand 2");
+        }
 
-		return 0;
+
+//		return 0;
 
 	}
-	
 
-	void setAlarm()
-	{
+
+	void restartGPS() {
+		// stop all the location objects
+		for (int i = 0; i < POOL_SIZE; i++) {
+			if (locationPool[i] != null) {
+				locationPool[i].stop();
+				locationPool[i] = null;
+			}
+
+		}
+		lastLocationTimer.reset();
+		lastLocationTimer.start();
+
+		totalLocations = 0;
+	}
+
+// 	public static void updateFlashlight() {
+// 		if (!flashlightOn && Settings.flashlight) {
+// 			if (cam == null) {
+// 				cam = Camera.open();
+// 			}
+// 
+// 			Camera.Parameters p = cam.getParameters();
+// 			p.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
+// 			cam.setParameters(p);
+// 			cam.startPreview();
+// 			flashlightOn = true;
+// 
+// //			if(cameraManager == null)
+// //			{
+// //				try {
+// //					cameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
+// //					cameraManager.openCamera("0", new CameraDevice.StateCallback()
+// //					{
+// //
+// //						@Override
+// //						public void onOpened(CameraDevice camera) {
+// //							cameraDevice = camera;
+// //							try
+// //							{
+// //								cameraBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_MANUAL);
+// //								cameraBuilder.set(CaptureRequest.FLASH_MODE, CameraMetadata.FLASH_MODE_TORCH);
+// //								List<Surface> list = new ArrayList<Surface>();
+// //								SurfaceTexture surfaceTexture = new SurfaceTexture(1);
+// //								Size size = getSmallestSize(cameraDevice.getId());
+// //								surfaceTexture.setDefaultBufferSize(size.getWidth(), size.getHeight());
+// //                				Surface surface = new Surface(surfaceTexture);
+// //                				list.add(surface);
+// //                				cameraBuilder.addTarget(surface);
+// //                				camera.createCaptureSession(list,
+// //									new CameraCaptureSession.StateCallback()
+// //									{
+// //										@Override
+// //        								public void onConfigured(CameraCaptureSession session)
+// //										{
+// //            								cameraSession = session;
+// //            								try {
+// //                								cameraSession.setRepeatingRequest(cameraBuilder.build(), null, null);
+// //            									flashlightOn = true;
+// //											} catch (CameraAccessException e) {
+// //                								e.printStackTrace();
+// //            								}
+// //        								}
+// //
+// //        								@Override
+// //        								public void onConfigureFailed(CameraCaptureSession session)
+// //										{
+// //
+// //        								}
+// //									}, null);
+// //							}catch(Exception e)
+// //							{
+// //
+// //							}
+// //						}
+// //
+// //						private Size getSmallestSize(String cameraId) throws CameraAccessException
+// //						{
+// //        					Size[] outputSizes = cameraManager.getCameraCharacteristics(cameraId)
+// //                					.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+// //                					.getOutputSizes(SurfaceTexture.class);
+// //        					if (outputSizes == null || outputSizes.length == 0) {
+// //            					throw new IllegalStateException(
+// //                    					"Camera " + cameraId + "doesn't support any outputSize.");
+// //        					}
+// //        					Size chosen = outputSizes[0];
+// //        					for (Size s : outputSizes) {
+// //            					if (chosen.getWidth() >= s.getWidth() && chosen.getHeight() >= s.getHeight()) {
+// //                					chosen = s;
+// //            					}
+// //        					}
+// //        					return chosen;
+// //    					}
+// //
+// //
+// //						@Override
+// //						public void onDisconnected(CameraDevice camera) {
+// //
+// //						}
+// //
+// //						@Override
+// //						public void onError(CameraDevice camera, int error) {
+// //
+// //						}
+// //
+// //
+// //
+// //					}, null);
+// //
+// //
+// //				}
+// //				catch(Exception e)
+// //				{
+// //
+// //				}
+// //			}
+// 		}
+
+
+// 		if (flashlightOn && !Settings.flashlight) {
+// 
+// 			if (cam == null) {
+// 				cam = Camera.open();
+// 			}
+// 
+// 
+// 			cam.stopPreview();
+// 			cam.release();
+// 			cam = null;
+// 
+// //			if(cameraSession != null)
+// //			{
+// //				cameraSession.close();
+// //				cameraDevice.close();
+// //				cameraDevice = null;
+// //				cameraSession = null;
+// //			}
+// 			flashlightOn = false;
+// 		}
+// 
+// 	}
+
+	void setAlarm() {
 		Intent i = new Intent(this, Main.class);
 		PendingIntent pi = PendingIntent.getService(this, 0, i, 0);
 		alarmManager.cancel(pi);
-		alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP,
-	        SystemClock.elapsedRealtime() + Settings.DT, 
-	        pi);
-		
+		alarmManager.setExactAndAllowWhileIdle(
+            AlarmManager.ELAPSED_REALTIME_WAKEUP,
+			SystemClock.elapsedRealtime() + Settings.DT,
+			pi);
+
 	}
-	
+
+
+	// start the recording if it isn't already going
+	static void startRecording()
+	{
+
+		if(!Settings.recordRoute)
+		{
+			Settings.recordRoute = true;
+			Main.startLog();
+			Main.sayText("Recording started");
+		}
+
+	}
+
+
+	static void toggleRecording()
+	{
+		Settings.recordRoute = !Settings.recordRoute;
+
+
+		if(Settings.recordRoute)
+		{
+			Main.startLog();
+			Main.sayText("Recording started");
+		}
+		else
+		{
+			// just stopped
+			Settings.logTimer.stop();
+			Main.sayText("Recording paused");
+		}
+
+// want pause to resume from previous point
+//		Settings.prevFineXYZ = null;
+//		Settings.prevCoarseXYZ = null;
+
+		Settings.save(Main.context);
+		Settings.saveState(Main.context);
+	}
+
+	static void resetIntervals()
+	{
+		Settings.db.getWritableDatabase().delete(IntervalDB.TABLE_NAME,
+				null,
+				null);
+
+		Settings.intervalActive = false;
+		Settings.intervalStart = -1;
+		Settings.intervalTimer.reset();
+		Settings.intervalState = Settings.WORK;
+		Settings.saveState(Main.context);
+		//Main.sayText("Reset");
+	}
+
+
+
 	static double getIntervalDistance()
 	{
 		double distance = 0;
@@ -493,46 +863,100 @@ public class Main extends Service implements
 		long time2 = Settings.log.get(index).time;
 		for(int i = index - 1; i >= 0; i--)
 		{
-			double distance1 = Settings.log.get(i).distance;
-			double distance = distance2 - distance1;
-			if(distance >= Settings.intervalWork)
+			if(Settings.workUnits == Settings.SECONDS)
 			{
-				long time1 = Settings.log.get(i).time;
+				double time1 = Settings.log.get(i).time;
 				double duration = time2 - time1;
-				double pace = duration / distance;
-				
-//				Log.v("updatePace", " distance=" + distance +
-//						" duration=" + duration +
-//						" pace=" + pace);
-// got a new lower pace
-				if(pace < Settings.peakPace)
+				if(duration >= Settings.intervalWorkTime)
 				{
-					Settings.peakDuration = duration;
-					Settings.peakIndex = index;
-					Settings.peakPace = pace;
-				}
-				else
-				{
-					time1 = Settings.log.get(Settings.peakIndex).time;
-// no lower pace for the last 10 seconds
-					if(time2 - time1 > Settings.PACE_LAG)
+					double distance1 = Settings.log.get(i).distance;
+					double distance = distance2 - distance1;
+					double pace = 0;
+					
+					if(distance > 0)
 					{
-// pace in seconds per mile
-						pace = Main.miToM(Settings.peakPace);
-						Settings.db.updateInterval(Settings.peakDuration, 
-								Settings.peakPace,
-								distance);
-						// Make GUI update
-						Settings.intervalDBChanged = true;
-						sayText(new Formatter().format("%d seconds elapsed.  %d minutes %d seconds per mile.",
-								(int)Settings.peakDuration,
-								(int)(pace / 60),
-								(int)(pace % 60)).toString());
-						Settings.needPace = false;
+						pace = duration / distance;
 					}
-				}
 
-				break;
+// got a new lower pace
+					if(pace < Settings.peakPace)
+					{
+						Settings.peakDuration = duration;
+						Settings.peakIndex = index;
+						Settings.peakPace = pace;
+					}
+					else
+					{
+						time1 = Settings.log.get(Settings.peakIndex).time;
+// no lower pace for last 10 seconds
+						if(time2 - time1 > Settings.PACE_LAG)
+						{
+// seconds per mile
+							pace = Main.miToM(Settings.peakPace);
+							Settings.db.updateInterval(Settings.peakDuration, 
+									Settings.peakPace,
+									distance);
+// Make GUI update
+							Settings.intervalDBChanged = true;
+							sayText(new Formatter().format("Total distance %.2f miles.  Split pace %d minutes %d seconds per mile.",
+									Main.mToMi(distance),
+									(int)(pace / 60),
+									(int)(pace % 60)).toString());
+							Settings.needPace = false;
+						}
+					}
+					break;
+
+				}
+			}
+			else
+			{
+				double distance1 = Settings.log.get(i).distance;
+				double distance = distance2 - distance1;
+				if(distance >= Settings.intervalWork)
+				{
+					long time1 = Settings.log.get(i).time;
+					double duration = time2 - time1;
+					double pace = 0;
+					if(distance > 0)
+					{
+						pace = duration / distance;
+					}
+
+	//				Log.v("updatePace", " distance=" + distance +
+	//						" duration=" + duration +
+	//						" pace=" + pace);
+	// got a new lower pace
+					if(pace < Settings.peakPace)
+					{
+						Settings.peakDuration = duration;
+						Settings.peakIndex = index;
+						Settings.peakPace = pace;
+					}
+					else
+					{
+						if(Settings.peakIndex < Settings.log.size()) {
+							time1 = Settings.log.get(Settings.peakIndex).time;
+							// no lower pace for the last 10 seconds
+							if (time2 - time1 > Settings.PACE_LAG) {
+								// pace in seconds per mile
+								pace = Main.miToM(Settings.peakPace);
+								Settings.db.updateInterval(Settings.peakDuration,
+										Settings.peakPace,
+										distance);
+// Make GUI update
+								Settings.intervalDBChanged = true;
+								sayText(new Formatter().format("%d seconds elapsed.  %d minutes %d seconds per mile.",
+										(int) Settings.peakDuration,
+										(int) (pace / 60),
+										(int) (pace % 60)).toString());
+								Settings.needPace = false;
+							}
+						}
+					}
+
+					break;
+				}
 			}
 		}
 		
@@ -550,7 +974,7 @@ public class Main extends Service implements
 		
 		if(Settings.intervalState == Settings.COUNTDOWN)
 		{
-//			Log.v("Main", "updateInterval 1 " + Settings.intervalCountdown);
+Log.v("x", "Main.updateInterval 1 " + Settings.intervalCountdown);
 			if(Settings.intervalCountdown == 0)
 			{
 				startWork();
@@ -587,7 +1011,6 @@ public class Main extends Service implements
 			else
 			{
 // call .5 miles
-// TODO: versions for meters, seconds
 				switch(Settings.workUnits)
 				{
 				case Settings.MILES:
@@ -620,7 +1043,7 @@ public class Main extends Service implements
 						distance >= nextUpdate)
 					{
 						Settings.prevUpdate = nextUpdate;
-						sayText(new Formatter().format("%d", distance).toString());
+						sayText(new Formatter().format("%d", (int)distance).toString());
 					}
 					break;
 				}
@@ -856,7 +1279,7 @@ public class Main extends Service implements
         			
         		}
 
-        		
+        		Main.resetIntervals();
 //        		refresh();
 
             }
@@ -865,29 +1288,34 @@ public class Main extends Service implements
     	dialog.setNegativeButton("No", null);
     	dialog.show();
 	}
-	
+
+
+// only called from the map
 	static void clearRoute(Activity activity)
 	{
 		if(Settings.route.size() == 0) return;
     	
-    	Builder dialog = new AlertDialog.Builder(activity);
-    	
-    	dialog.setMessage("Really clear route?");
-    	dialog.setPositiveButton("Yes", new DialogInterface.OnClickListener() 
-    	{
-            public void onClick(DialogInterface dialog, int which) 
-            {
-                Settings.route.clear();
-                Settings.currentRoute = null;
-                Settings.save(context);
-//                refresh();
-            }
+//     	Builder dialog = new AlertDialog.Builder(activity);
+//     	
+//     	dialog.setMessage("Really clear route?");
+//     	dialog.setPositiveButton("Yes", new DialogInterface.OnClickListener() 
+//     	{
+//             public void onClick(DialogInterface dialog, int which) 
+//             {
+//                 Settings.route.clear();
+//                 Settings.currentRoute = null;
+//                 Settings.save(context);
+// //                refresh();
+//             }
+// 
+//         });
+//     	dialog.setNegativeButton("No", null);
+//     	dialog.show();
 
-        });
-    	dialog.setNegativeButton("No", null);
-    	dialog.show();
-
-
+        Settings.route.clear();
+        Settings.currentRoute = null;
+        Settings.save(context);
+        ((Map)activity).refresh();
 		
 	}
 	
@@ -953,25 +1381,44 @@ public class Main extends Service implements
     {
     	switch (item.getItemId()) 
     	{
-        case R.id.menu_settings:
-        	activity.startActivity(new Intent(activity, SettingsWin.class));
+//        case R.id.menu_settings: {
+//			Intent i = new Intent(activity, SettingsWin.class);
+//			//i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY);
+//			activity.startActivity(i);
+//			return true;
+//		}
+
+        case R.id.menu_map:
+        	activity.startActivity(new Intent(activity, Map.class));
         	return true;
-        case R.id.menu_interval_settings:
-        	activity.startActivity(new Intent(activity, IntervalSettings.class));
-        	return true;
-//        case R.id.menu_map:
-//        	activity.startActivity(new Intent(activity, Map.class));
-//        	return true;
-        case R.id.menu_interval:
-        	activity.startActivity(new Intent(activity, IntervalTraining.class));
-        	return true;
+
+        case R.id.menu_interval: {
+			Intent i = new Intent(activity, IntervalTraining.class);
+			activity.startActivity(i);
+			return true;
+		}
+
+		case R.id.menu_savelog:
+			FileSelect.nextWindow = SettingsWin.class;
+			Main.saveLog();
+			break;
+
     	case R.id.menu_clearlog:
     		clearLog(activity);
     		break;
 
-    	case R.id.menu_clearroute:
-    		clearRoute(activity);
-    		break;
+// only called from the Map
+		case R.id.menu_load:
+   	        Settings.selectLoad = true;
+			FileSelect.nextWindow = Map.class;
+       	    activity.startActivity( new Intent(Main.context, FileSelect.class));
+			break;
+
+// only called from the Map
+   	    case R.id.menu_clearroute:
+   		    clearRoute(activity);
+   		    break;
+
         default:
         	return false;
     	}
@@ -1003,13 +1450,17 @@ public class Main extends Service implements
 			Log.v("IntervalTraining", "onClick db size=" + 
 					Settings.db.totalIntervals() + " timer=" +
 					Settings.intervalTimer.getTime());
+			// start recording log
+			startRecording();
+
 			if(Settings.intervalState == Settings.COUNTDOWN ||
 					Settings.db.totalIntervals() == 0 &&
 					Settings.intervalTimer.getTime() < 1000 &&
 					Main.getIntervalDistance() < 0.01)
 			{
 	//begin 1st workout
-	    		Log.v("IntervalTraining", "onClick COUNTDOWN");
+
+	    		Log.i("IntervalTraining", "onClick COUNTDOWN");
 				Settings.intervalState = Settings.COUNTDOWN;
 				Settings.intervalCountdown = 10;
 			}
@@ -1029,8 +1480,8 @@ public class Main extends Service implements
 			
 			Settings.intervalActive = true;
 			Settings.intervalTimer.start();
-			Settings.enableService = true;
-			Settings.needRestart = true;
+//			Settings.enableService = true;
+//			Settings.needRestart = true;
 			Settings.save(Main.context);
 			Settings.saveState(Main.context);
 		}
@@ -1318,9 +1769,9 @@ public class Main extends Service implements
  	// distance between 2 points in meters
  	double getDistance(RoutePoint point1, RoutePoint point2)
  	{
- 		XYZ result1 = llh_to_xyz(point1.latitude, 
- 				point1.longitude, 
- 				point1.altitude);
+ 		XYZ result1 = llh_to_xyz(point1.latitude,
+				point1.longitude,
+				point1.altitude);
  		XYZ result2 = llh_to_xyz(point2.latitude, 
  				point2.longitude, 
  				point2.altitude);
@@ -1611,23 +2062,84 @@ public class Main extends Service implements
 		}
 	}
 
-	static void saveRoute(String path) 
-    {
-    	saveRoute(path, Settings.route);
-	}
 
-	static void saveLog(String path) 
-    {
-		sayText("Saving log");
-    	saveRoute(path, Settings.log);
-    	sayText("log saved");
+/// entry point from GUI
+//	static void saveRoute(boolean isGPX)
+//	{
+//
+//		Settings.saveGPX = isGPX;
+//		Settings.selectLoad = false;
+//		Settings.selectSave = false;
+//		Settings.selectSaveLog = true;
+//// create a default filename
+//		if(FileSelect.selectedFile == null ||
+//				FileSelect.selectedFile.length() == 0)
+//		{
+//			if(Settings.log.size() > 0)
+//			{
+//				RoutePoint point = Settings.log.get(Settings.log.size() - 1);
+//				Calendar end = Calendar.getInstance();
+//				end.setTimeInMillis(point.time * 1000);
+//				Formatter format = new Formatter();
+//				format.format("%04d_%02d_%02dT%02d_%02d_%02dZ.%s",
+//						end.get(Calendar.YEAR),
+//						end.get(Calendar.MONTH) + 1,
+//						end.get(Calendar.DAY_OF_MONTH),
+//						end.get(Calendar.HOUR_OF_DAY),
+//						end.get(Calendar.MINUTE),
+//						end.get(Calendar.SECOND),
+//						Settings.getSaveExtension());
+//				String filename = format.toString();
+//				FileSelect.selectedFile = filename;
+//			}
+//		}
+//
+//
+//		Intent i = new Intent(Main.context, FileSelect.class);
+//		i.setFlags(i.getFlags() | Intent.FLAG_ACTIVITY_NO_HISTORY | Intent.FLAG_ACTIVITY_NEW_TASK);
+//		Main.context.startActivity(i);
+//	}
+
+//	static void saveRoute(String path)
+//    {
+//		saveRoute(path, Settings.route);
+//	}
+
+
+
+
+// entry point for saving the log
+	static void saveLog() {
+		sayText("Saving workout");
+
+// create the filename from the last timestamp
+		RoutePoint point = Settings.log.get(Settings.log.size() - 1);
+		Calendar end = Calendar.getInstance();
+		end.setTimeInMillis(point.time * 1000);
+		Formatter format = new Formatter();
+		format.format("%04d_%02d_%02dT%02d_%02d_%02dZ.%s",
+				end.get(Calendar.YEAR),
+				end.get(Calendar.MONTH) + 1,
+				end.get(Calendar.DAY_OF_MONTH),
+				end.get(Calendar.HOUR_OF_DAY),
+				end.get(Calendar.MINUTE),
+				end.get(Calendar.SECOND),
+				Settings.getSaveExtension());
+		String filename = Settings.dir + "/" + format.toString();
+// save it
+		saveRoute(filename, Settings.log);
+    	sayText("workout saved");
+
+//		sayText("Saving workout");
+//    	saveRoute(path, Settings.log);
+//    	sayText("workout saved");
 	}
     
 	public static void startLog() 
 	{
 		// just started
-		Settings.needRestart = true;
-		Settings.enableService = true;
+//		Settings.needRestart = true;
+//		Settings.enableService = true;
 		FileSelect.selectedFile = null;
 		Settings.logTimer.start();
 		
@@ -1640,27 +2152,17 @@ public class Main extends Service implements
 
  	static void sayText(String text)
  	{
- 		if(ttsReady) tts.speak(text, TextToSpeech.QUEUE_ADD, null);
+ 		if(ttsReady)
+		{
+			HashMap<String, String> params = new HashMap<String, String>();
+			params.put(TextToSpeech.Engine.KEY_PARAM_VOLUME, "1.0");
+//Log.i("sayText", text);
+			tts.speak(text, TextToSpeech.QUEUE_ADD, params);
+		}
  	}
 
-	@Override
-	public void onConnectionFailed(ConnectionResult result) {
-		
-	}
 
-	@Override
-	public void onConnected(Bundle connectionHint) {
-	}
 
-    @Override
-    public void onConnectionSuspended(int i) {
-
-    }
-
-    @Override
-	public void onDisconnected() {
-		
-	}
 	@Override
 	public void onInit(int status) 
 	{
@@ -1688,23 +2190,4 @@ public class Main extends Service implements
 		bluetoothStatus = text;
 	}
 	
-	// only static variables survive the alarm calls
-    static Main main;
-    static Context context;
-    static Settings settings;
-    static boolean haveGUI = false;
-	static boolean haveLocation = false;
-	static Location location;
-	static int totalUpdates = 0;
-	static LocationManager locationManager;
-	static GoogleApiClient mGoogleApiClient;
-	static ExternalClient externalClient;
-	static AlarmManager alarmManager;
-	static GPSLocationListener locationListener;
-	static TextToSpeech tts;
-	static boolean ttsReady;
-	static OutputStream logTemp;
-	static int LOG_PACKET_SIZE = 32;
-	static String bluetoothStatus = "Bluetooth status";
-	static WebServer webServer;
 }

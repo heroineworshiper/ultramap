@@ -65,8 +65,8 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
         CheckBox checkbox;
         checkbox = (CheckBox) findViewById(R.id.follow_position);
         checkbox.setChecked(Settings.followPosition);
-        checkbox = (CheckBox) findViewById(R.id.keep_alive);
-        checkbox.setChecked(Settings.enableService);
+//        checkbox = (CheckBox) findViewById(R.id.keep_alive);
+//        checkbox.setChecked(Settings.enableService);
         checkbox = (CheckBox) findViewById(R.id.external_gps);
         checkbox.setChecked(Settings.externalGPS);
         checkbox = (CheckBox) findViewById(R.id.voice_feedback);
@@ -443,12 +443,12 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
         	Settings.save(Main.context);
         	break;
 
-        case R.id.keep_alive:
-        	checkbox = (CheckBox) findViewById(R.id.keep_alive);
-        	Settings.enableService = checkbox.isChecked();
-        	Settings.save(Main.context);
-        	Main.main.setAlarm();
-        	break;
+//         case R.id.keep_alive:
+//         	checkbox = (CheckBox) findViewById(R.id.keep_alive);
+//         	Settings.enableService = checkbox.isChecked();
+//         	Settings.save(Main.context);
+//         	Main.main.setAlarm();
+//         	break;
 
         case R.id.external_gps:
         	checkbox = (CheckBox) findViewById(R.id.external_gps);
@@ -468,12 +468,12 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
                 Settings.save(Main.context);
                 break;
 
-            case R.id.flashlight:
-                checkbox = (CheckBox) findViewById(R.id.flashlight);
-                Settings.flashlight = checkbox.isChecked();
-                Settings.save(Main.context);
-                Main.main.updateFlashlight();
-                break;
+//             case R.id.flashlight:
+//                 checkbox = (CheckBox) findViewById(R.id.flashlight);
+//                 Settings.flashlight = checkbox.isChecked();
+//                 Settings.save(Main.context);
+//                 Main.main.updateFlashlight();
+//                 break;
 
             case R.id.tempo_minus: {
                 EditText number = (EditText) findViewById(R.id.beats_per_minute);
