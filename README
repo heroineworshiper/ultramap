@@ -11,6 +11,10 @@ To install it, there must be an /sdcard/ultramap directory
 The html directory must be copied to /sdcard/ultramap/ yielding
 /sdcard/ultramap/html/
 
+For android 13: 
+Go to settings -> security & privacy -> privacy -> permission manager -> files ->
+    see more apps that can access all files -> Ultramap -> allow access to manage all files
+
 For android 11, 
 
 Go to settings -> apps -> ultramap -> location 

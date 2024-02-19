@@ -122,6 +122,7 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 	static LocationThread[] locationPool = new LocationThread[POOL_SIZE];
 	static boolean haveLocationPool = false;
 	static Metronome metronome = null;
+    static KeepAlive keepAlive =  null;
 	static int prevTempo = 0;
 	static int prevSound = -1;
 //	static boolean flashlightOn = false;
@@ -139,35 +140,43 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 //		Log.v("Main", "Main");
 	}
 
-	static public void requestPermission(Activity activity, String permission)
+    static private boolean hasPermission(Activity activity, String perm) {
+        boolean result = (PackageManager.PERMISSION_GRANTED == ContextCompat.checkSelfPermission(activity, perm));
+        if(result == true)
+        {
+            Log.i("hasPermission", perm + " GRANTED");
+        }
+        else
+        {
+            Log.i("hasPermission", perm + " DENIED");
+        }
+        return result;
+    }
+
+	static public void requestPermissions(Activity activity)
 	{
-		if (ContextCompat.checkSelfPermission(
-				activity,
-				permission) ==
-				PackageManager.PERMISSION_GRANTED)
-		{
-			// You can use the API that requires the permission.
-		}
-		else
-		if (ActivityCompat.shouldShowRequestPermissionRationale(activity,
-				permission))
-		{
-			// In an educational UI, explain to the user why your app requires this
-			// permission for a specific feature to behave as expected. In this UI,
-			// include a "cancel" or "no thanks" button that allows the user to
-			// continue using your app without granting the permission.
-		}
-		else
-		{
-			// You can directly ask for the permission.
-			ActivityCompat.requestPermissions(activity,
-					new String[] { permission },
-					MY_PERMISSIONS_REQUEST_READ_FINE_LOCATION);
-		}
+        final String[] permissions = {
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        };
 
+        boolean gotIt = true;        
+        for(int i = 0; i < permissions.length; i++)
+        {
+            if(!hasPermission(activity, permissions[i]))
+            {
+                gotIt = false;
+                break;
+            }
+        }
 
-
-
+        if(!gotIt)
+        {
+            final int EXTERNAL_REQUEST = 138;
+            ActivityCompat.requestPermissions(activity, permissions, EXTERNAL_REQUEST);
+        }
 	}
 
 	static public void initialize(Activity activity) {
@@ -182,8 +191,7 @@ Log.i("x", "Main.initialize 1");
 //			updateFlashlight();
 
 
-			requestPermission(activity, Manifest.permission.ACCESS_COARSE_LOCATION);
-			requestPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION);
+			requestPermissions(activity);
 Log.i("x", "Main.initialize 2");
 
 			Intent serviceIntent = new Intent(activity, Main.class);
@@ -546,9 +554,17 @@ Log.i("x", "Main.startService 3");
 			            metronome = null;
 		            }
 
+		            if (Settings.keepAlive && keepAlive == null) {
+			            keepAlive = new KeepAlive();
+			            keepAlive.start();
+		            } else if (!Settings.keepAlive && keepAlive != null) {
+			            keepAlive.stop2();
+			            keepAlive = null;
+		            }
+
 
 		            Settings.saveState(context);
-Log.i("x", "Main.startService 2");
+Log.i("x", "Main.startService 4");
 
                     try
                     {

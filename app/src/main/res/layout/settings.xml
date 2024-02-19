@@ -211,6 +211,13 @@
         android:onClick="onClick" />
 
     <CheckBox
+        android:id="@+id/keepAlive"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Keep Speaker Alive"
+        android:onClick="onClick" />
+
+    <CheckBox
         android:id="@+id/flashlight"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

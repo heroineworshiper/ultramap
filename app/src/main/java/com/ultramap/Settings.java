@@ -56,6 +56,7 @@ public class Settings {
 
 		beatsPerMinute = file.getInt("beatsPerMinute", beatsPerMinute);
 		metronome = file.getBoolean("metronome", metronome);
+		keepAlive = file.getBoolean("keepAlive", keepAlive);
 		bearing = file.getFloat("bearing", (float)bearing);
 		latitude = file.getFloat("latitude", (float)latitude);
 		longitude = file.getFloat("longitude", (float)longitude);
@@ -87,6 +88,7 @@ public class Settings {
 
 		file.putInt("beatsPerMinute",  beatsPerMinute);
 		file.putBoolean("metronome",  metronome);
+		file.putBoolean("keepAlive",  keepAlive);
 //		file.putBoolean("enableService",  enableService);
 		file.putBoolean("externalGPS",  externalGPS);
 //		file.putBoolean("voiceFeedback",  voiceFeedback);
@@ -393,6 +395,9 @@ public class Settings {
 	static int sound = 0;
 	// current sound file for the current metronome sound
 	static int soundFile = 0;
+
+    // keep speaker alive
+	static boolean keepAlive = false;
 
 // units
 	static final int SECONDS = 0;

@@ -356,12 +356,8 @@ public class WebServer extends Thread
 			            			path = Settings.camDir + "/" + filename;
 			            		}
 			            	}
-			            	
-			            	
-			            	
-			            	
-			            	
-			            	Log.v("WebServer", "run path=" + path);
+
+			            	Log.i("WebServer", "run path=" + path);
 			            	
 			            	File f = new File(path);
 			            	if (f.isDirectory() && !path.endsWith("/")) {
@@ -387,8 +383,9 @@ public class WebServer extends Thread
 			                    	log(connection, "200 OK");
 			                	} catch (FileNotFoundException e) { 
 			                    	// file not found
+                                    Log.i("WebServer", path + " not found");
 			                    	errorReport(pout, connection, "404", "Not Found",
-			                                	"The requested URL was not found on this server.");
+			                                	"The requested URL '" + path + "' was not found on this server.");
 			                	}
 			            	}
 			        	}

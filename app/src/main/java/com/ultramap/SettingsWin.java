@@ -73,6 +73,8 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
         checkbox.setChecked(Settings.voiceFeedback);
         checkbox = (CheckBox) findViewById(R.id.metronome);
         checkbox.setChecked(Settings.metronome);
+        checkbox = (CheckBox) findViewById(R.id.keepAlive);
+        checkbox.setChecked(Settings.keepAlive);
         checkbox = (CheckBox) findViewById(R.id.flashlight);
         checkbox.setChecked(Settings.flashlight);
 
@@ -462,11 +464,17 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
         	Settings.save(Main.context);
         	break;
 
-            case R.id.metronome:
-                checkbox = (CheckBox) findViewById(R.id.metronome);
-                Settings.metronome = checkbox.isChecked();
-                Settings.save(Main.context);
-                break;
+        case R.id.metronome:
+            checkbox = (CheckBox) findViewById(R.id.metronome);
+            Settings.metronome = checkbox.isChecked();
+            Settings.save(Main.context);
+            break;
+
+        case R.id.keepAlive:
+            checkbox = (CheckBox) findViewById(R.id.keepAlive);
+            Settings.keepAlive = checkbox.isChecked();
+            Settings.save(Main.context);
+            break;
 
 //             case R.id.flashlight:
 //                 checkbox = (CheckBox) findViewById(R.id.flashlight);
@@ -475,34 +483,34 @@ public class SettingsWin extends WindowBase implements OnItemSelectedListener
 //                 Main.main.updateFlashlight();
 //                 break;
 
-            case R.id.tempo_minus: {
-                EditText number = (EditText) findViewById(R.id.beats_per_minute);
-                if(Settings.beatsPerMinute > MIN_TEMPO)
-                {
-                    Settings.beatsPerMinute--;
-                    Settings.save(Main.context);
-                    number.setText(Integer.toString(Settings.beatsPerMinute));
-                }
-
-                break;
+        case R.id.tempo_minus: {
+            EditText number = (EditText) findViewById(R.id.beats_per_minute);
+            if(Settings.beatsPerMinute > MIN_TEMPO)
+            {
+                Settings.beatsPerMinute--;
+                Settings.save(Main.context);
+                number.setText(Integer.toString(Settings.beatsPerMinute));
             }
 
-            case R.id.tempo_plus: {
-                EditText number = (EditText) findViewById(R.id.beats_per_minute);
-                if(Settings.beatsPerMinute < MAX_TEMPO)
-                {
-                    Settings.beatsPerMinute++;
-                    Settings.save(Main.context);
-                    number.setText(Integer.toString(Settings.beatsPerMinute));
-                }
+            break;
+        }
 
-                break;
+        case R.id.tempo_plus: {
+            EditText number = (EditText) findViewById(R.id.beats_per_minute);
+            if(Settings.beatsPerMinute < MAX_TEMPO)
+            {
+                Settings.beatsPerMinute++;
+                Settings.save(Main.context);
+                number.setText(Integer.toString(Settings.beatsPerMinute));
             }
 
-            case R.id.settings_pause:
-                toggleRecording();
-                updateButtonText();
-                break;
+            break;
+        }
+
+        case R.id.settings_pause:
+            toggleRecording();
+            updateButtonText();
+            break;
         }
     }
 
