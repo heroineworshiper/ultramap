@@ -14,6 +14,7 @@ The html directory must be copied to /sdcard/ultramap/ yielding
 For android 13: 
 Go to settings -> security & privacy -> privacy -> permission manager -> files ->
     see more apps that can access all files -> Ultramap -> allow access to manage all files
+Precise location must be enabled
 
 For android 11, 
 
@@ -25,7 +26,7 @@ Find ultramap in the list
 Change from optimize to don't optimize
 
 
-Go to settings -> location -> advanced
+Go to settings -> location -> services -> 
 Disable google location accuracy
 Disable google location history
 

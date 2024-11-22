@@ -334,6 +334,18 @@ public class Settings {
 				R.raw.horse01, R.raw.horse02, R.raw.horse03, R.raw.horse04 };
 				return horseSounds;
 			}
+
+			case 5:
+			{
+				final int[] sleigh1 = { R.raw.sleigh };
+				return sleigh1;
+			}
+
+			case 6:
+			{
+				final int[] sleigh2 = { R.raw.sleigh2 };
+				return sleigh2;
+			}
 		}
 		final int[] result = { R.raw.hi };
 		return result;
