@@ -33,6 +33,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.net.Inet4Address;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Arrays;
@@ -68,8 +69,13 @@ public class WebServer extends Thread
             try {
                 // wait for request
                 connection = socket.accept();
-                Log.v("WebServer", "run: got connection");
-                if(connection != null) startConnection(connection);
+                Log.i("WebServer", "run: got connection " + 
+                    connection.getInetAddress().toString() +
+                    " IPv4=" + 
+                    (connection.getInetAddress() instanceof Inet4Address));
+// block the public IPv6 address
+                if(connection != null &&
+                    (connection.getInetAddress() instanceof Inet4Address)) startConnection(connection);
                 
             } catch (IOException e) 
             { 
@@ -154,12 +160,14 @@ public class WebServer extends Thread
             return "text/plain";
     }
 
-    void sendHeader(PrintStream pout, String contentType)
+    void sendHeader(PrintStream pout, String contentType, long size)
     {
-    	pout.print("HTTP/1.0 200 OK\r\n" +
-     	   "Content-Type: " + contentType + "\r\n" +
-     	   "Date: " + new Date() + "\r\n" +
-     	   "Server: Ultramap\r\n\r\n");
+        pout.print("HTTP/1.0 200 OK\r\n" +
+                "Content-Type: " + contentType + "\r\n");
+        if(size > 0)
+            pout.print("Content-Length: " + size + "\r\n");
+        pout.print("Date: " + new Date() + "\r\n" +
+                "Server: Ultramap\r\n\r\n");
     }
 
 	void sendFileList(PrintStream pout, String req, File dir)
@@ -197,7 +205,7 @@ public class WebServer extends Thread
 
 
 
-		sendHeader(pout, "application/json");
+		sendHeader(pout, "application/json", -1);
 		int start = req.indexOf("callback=");
 		int end;
 		String callback = "";
@@ -378,7 +386,7 @@ public class WebServer extends Thread
 			                	try { 
 			                    	// send file
 			                    	InputStream file = new FileInputStream(f);
-			                    	sendHeader(pout, guessContentType(path));
+			                    	sendHeader(pout, guessContentType(path), f.length());
 			                    	sendFile(file, out); // send raw file 
 			                    	log(connection, "200 OK");
 			                	} catch (FileNotFoundException e) { 

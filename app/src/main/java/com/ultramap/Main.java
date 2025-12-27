@@ -332,7 +332,7 @@ Log.i("x", "Main.onStartCommand main=" + main);
 		main = this;
 		context = getApplicationContext();
 		tts = new TextToSpeech(context, this);
-Log.i("x", "Main.startService 1");
+//Log.i("x", "Main.startService 1");
 		wakeLock = ((PowerManager)getSystemService(Context.POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
 				"Main::wakeLock");
 		wakeLock.acquire();
@@ -341,7 +341,7 @@ Log.i("x", "Main.startService 1");
 
 		webServer = new WebServer();
 		webServer.start();
-Log.i("x", "Main.startService 2");
+//Log.i("x", "Main.startService 2");
 
 		thread = new Thread(new Runnable(){
             @Override
@@ -349,7 +349,7 @@ Log.i("x", "Main.startService 2");
             {
                 while(true)
                 {
-Log.i("x", "Main.startService 3");
+//Log.i("x", "Main.startService 3");
 
 
 
@@ -564,7 +564,7 @@ Log.i("x", "Main.startService 3");
 
 
 		            Settings.saveState(context);
-Log.i("x", "Main.startService 4");
+//Log.i("x", "Main.startService 4");
 
                     try
                     {
