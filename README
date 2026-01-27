@@ -1,6 +1,30 @@
+/*
+ * Ultramap
+ * Copyright (C) 2021 Adam Williams <broadcast at earthling dot net>
+ * 
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * 
+ */
+
+
+
 What you'll find here:
 
 Junk GPS tracker with support for interval training, metronome, mapping.
+Stores all the data locally on the phone.  That was a real drawback when
+it was written in 2013, but boy is it a feature now.
 
 Has a web server for viewing workouts on a confuser.
 
@@ -10,6 +34,18 @@ A more automated way of doing it is obsolete in 3 months.
 To install it, there must be an /sdcard/ultramap directory
 The html directory must be copied to /sdcard/ultramap/ yielding
 /sdcard/ultramap/html/
+
+The key for goog maps must be changed to your own goog account.  It's
+stored in 
+
+html/workout.html starting in key= for the browser interface &
+
+AndroidManifest.xml starting in API_KEY for the phone app.
+
+The app & the html use different keys.  Since no-one uses this program,
+it has never been worth obfuscating.
+
+
 
 For android 13: 
 Go to settings -> security & privacy -> privacy -> permission manager -> files ->

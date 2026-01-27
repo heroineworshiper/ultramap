@@ -26,8 +26,12 @@
 
 package com.ultramap;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -69,6 +73,10 @@ import android.hardware.Camera;
 //import android.hardware.camera2.CameraMetadata;
 //import android.hardware.camera2.CaptureRequest;
 import android.location.Location;
+import android.media.AudioFormat;
+import android.media.AudioManager;
+import android.media.AudioTrack;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.SystemClock;
@@ -77,10 +85,13 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
+import android.speech.tts.UtteranceProgressListener;
 import android.support.v4.media.session.PlaybackStateCompat;
 import android.util.Log;
 //import android.util.Size;
 import android.view.MenuItem;
+
+import org.w3c.dom.Text;
 //import android.view.Surface;
 
 
@@ -2175,14 +2186,101 @@ Log.v("x", "Main.updateInterval 1 " + Settings.intervalCountdown);
 
 	}
 
+	static int currentText = 0;
  	static void sayText(String text)
  	{
  		if(ttsReady)
 		{
-			HashMap<String, String> params = new HashMap<String, String>();
-			params.put(TextToSpeech.Engine.KEY_PARAM_VOLUME, "1.0");
+			//HashMap<String, String> params = new HashMap<String, String>();
+			Bundle params = new Bundle();
+			params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, (float)1.0);
+			params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "capturePCM");
+			String filename = "tts_output" + currentText + ".wav";
+			currentText += 1;
+			File file = new File(context.getCacheDir(), filename);
+			int result = tts.synthesizeToFile(text,
+					params,
+					file,
+					"capturePCM");
+			if(result != TextToSpeech.SUCCESS)
+				Log.e("Main", "sayText " + text + " result=" + result);
+			else {
+				tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+					@Override
+					public void onStart(String s) {
+
+					}
+
+					@Override
+					public void onDone(String s) {
+						int length = (int) file.length();
+						byte[] buffer = new byte[length];
+						try {
+							FileInputStream fis = new FileInputStream(file);
+							fis.read(buffer, 0, length);
+							file.delete();
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+
+//						try {
+//							FileOutputStream debug = new FileOutputStream(new File("/sdcard/debug"));
+//							debug.write(buffer);
+//						} catch (Exception e) {
+//							e.printStackTrace();
+//						}
+
+						Log.i("Main", "sayText length=" + length);
+						final int HEADER = 44;
+						int channels = (buffer[22] & 0xff) |
+							((buffer[23] & 0xff) << 8);
+						int bits = (buffer[34] & 0xff) |
+							((buffer[35] & 0xff) << 8);
+						int samplerate = (buffer[24] & 0xff) |
+							((buffer[25] & 0xff) << 8) |
+							((buffer[26] & 0xff) << 16) |
+							((buffer[27] & 0xff) << 24);
+						Log.i("Main", "sayText text='" + text + "' file=" + context.getCacheDir().toString() + "/" + filename + " channels=" + channels + " samplerate=" + samplerate + " bits=" + bits);
+
+						int samples = (length - HEADER) / channels / 2;
+						for(int i = 0; i < samples * channels; i++)
+						{
+							int value = (buffer[HEADER + i * 2] & 0xff) |
+									(buffer[HEADER + i * 2 + 1] << 8); // extend the sign
+							value *= 4; // louder
+							if(value > 32767) value = 32767;
+							else
+							if(value < -32768) value = -32768;
+							buffer[HEADER + i * 2] = (byte)(value & 0xff);
+							buffer[HEADER + i * 2 + 1] = (byte)((value >> 8) & 0xff);
+						}
+
+						int bufsize = 4096; // must be smaller than length
+						AudioTrack atrack = new AudioTrack(
+								AudioManager.STREAM_MUSIC,
+								samplerate,
+								AudioFormat.CHANNEL_CONFIGURATION_MONO,
+								AudioFormat.ENCODING_PCM_16BIT,
+								bufsize,
+								AudioTrack.MODE_STREAM);
+						atrack.play();
+						for (int i = 44; i < length; i += bufsize) {
+							int fragment = bufsize;
+							if (i + fragment > length) fragment = length - i;
+							atrack.write(buffer, i, fragment);
+						}
+						atrack.flush();
+					}
+
+
+					@Override
+					public void onError(String s) {
+
+					}
+				});
 //Log.i("sayText", text);
-			tts.speak(text, TextToSpeech.QUEUE_ADD, params);
+			}
+			//tts.speak(text, TextToSpeech.QUEUE_ADD, params);
 		}
  	}
 
