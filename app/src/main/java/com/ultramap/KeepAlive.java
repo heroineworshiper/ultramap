@@ -52,17 +52,19 @@ public class KeepAlive extends Thread
 	
 	KeepAlive()
 	{
-// loop of random samples from 0-1
-		loopSize = SAMPLE_RATE * 60;
+// loop of random samples
+		loopSize = SAMPLE_RATE * 60 * 2;
 		loopData = new byte[loopSize];
-		for(int i = 0; i < loopSize; i++)
-            loopData[i] = (byte)(Math.random() + .5);
+		for(int i = 0; i < loopSize; i += 2) {
+			loopData[i] = (byte) (Math.random() * 16); // vivitar threshold  TODO: signed centered on 0
+			loopData[i + 1] = 0;
+		}
 
     	atrack = new AudioTrack(
     			AudioManager.STREAM_MUSIC, 
     			SAMPLE_RATE, 
     			AudioFormat.CHANNEL_CONFIGURATION_MONO,
-    			AudioFormat.ENCODING_PCM_8BIT, 
+    			AudioFormat.ENCODING_PCM_16BIT,
     			BUFFER_SIZE, 
     			AudioTrack.MODE_STREAM);
     	atrack.play();

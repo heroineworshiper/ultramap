@@ -143,6 +143,7 @@ public class Main extends Service implements TextToSpeech.OnInitListener {
 //	static CameraCaptureSession cameraSession = null;
 //	static CaptureRequest.Builder cameraBuilder = null;
 	private static final int MY_PERMISSIONS_REQUEST_READ_FINE_LOCATION = 100;
+    static AudioTrack speech_track = null;
 
 
 	public Main() {
@@ -2256,20 +2257,20 @@ Log.v("x", "Main.updateInterval 1 " + Settings.intervalCountdown);
 						}
 
 						int bufsize = 4096; // must be smaller than length
-						AudioTrack atrack = new AudioTrack(
+                        if(speech_track == null)
+						    speech_track = new AudioTrack(
 								AudioManager.STREAM_MUSIC,
 								samplerate,
 								AudioFormat.CHANNEL_CONFIGURATION_MONO,
 								AudioFormat.ENCODING_PCM_16BIT,
 								bufsize,
 								AudioTrack.MODE_STREAM);
-						atrack.play();
+						speech_track.play();
 						for (int i = 44; i < length; i += bufsize) {
 							int fragment = bufsize;
 							if (i + fragment > length) fragment = length - i;
-							atrack.write(buffer, i, fragment);
+							speech_track.write(buffer, i, fragment);
 						}
-						atrack.flush();
 					}
 
 
